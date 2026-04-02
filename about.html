@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>關於 WCA 白袍加速器</title>
+<meta name="description" content="WCA 白袍加速器 — 醫療創業的金標準。我們致力於培育白袍CEO，協助醫師從臨床轉型為成功的醫療創業者。">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@400;600;700&family=Noto+Sans+TC:wght@300;400;500;700&family=Playfair+Display:wght@400;600;700&family=Cinzel:wght@400;600;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+:root {
+  --warm-ivory: #FAFAF7; --parchment: #F2F0EB; --midnight-blue: #09182B;
+  --glory-gold: #C8A359; --glory-gold-light: #F0D695; --glory-gold-dark: #9E7D3D;
+  --ink-black: #1A1A1A; --graphite: #5A5A5A; --platinum: #8C8C8C;
+  --linen-line: #E5E2DB;
+  --font-serif-tc: 'Noto Serif TC', serif; --font-sans-tc: 'Noto Sans TC', sans-serif;
+  --font-display-en: 'Playfair Display', serif; --font-heading-en: 'Cinzel', serif;
+  --font-body-en: 'Montserrat', sans-serif;
+}
+html { font-size: 16px; scroll-behavior: smooth; }
+body { background-color: var(--warm-ivory); color: var(--ink-black); font-family: var(--font-sans-tc); line-height: 1.8; -webkit-font-smoothing: antialiased; }
+body::before { content: ''; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='100' height='100'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100' height='100' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E"); pointer-events: none; z-index: 0; }
+
+/* Header */
+.header { background: var(--midnight-blue); position: sticky; top: 0; z-index: 100; }
+.header-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; height: 68px; }
+.header-logo { display: flex; align-items: center; gap: 14px; text-decoration: none; }
+.logo-img { height: 48px; width: auto; object-fit: contain; border-radius: 2px; }
+.header-slogan { font-family: var(--font-sans-tc); font-size: 13px; font-weight: 300; color: rgba(255,255,255,0.55); letter-spacing: 1.5px; margin-left: 14px; padding-left: 14px; border-left: 1px solid rgba(200,163,89,0.3); line-height: 1.4; }
+.header-nav { display: flex; align-items: center; gap: 32px; }
+.header-nav a { font-family: var(--font-sans-tc); color: rgba(255,255,255,0.75); text-decoration: none; font-size: 14px; font-weight: 400; letter-spacing: 0.5px; transition: color 0.25s ease; position: relative; }
+.header-nav a:hover, .header-nav a.active { color: var(--glory-gold-light); }
+.header-nav a.active::after { content: ''; position: absolute; bottom: -4px; left: 0; right: 0; height: 2px; background: var(--glory-gold); border-radius: 1px; }
+.nav-subscribe { background: transparent; border: 1.5px solid var(--glory-gold); color: var(--glory-gold) !important; padding: 6px 18px; border-radius: 4px; font-size: 13px !important; font-weight: 500 !important; cursor: pointer; transition: all 0.25s ease; }
+.nav-subscribe:hover { background: var(--glory-gold); color: var(--midnight-blue) !important; }
+.header-divider { height: 2px; background: linear-gradient(90deg, transparent 0%, #9E7D3D 20%, #F0D695 50%, #9E7D3D 80%, transparent 100%); }
+.hamburger { display: none; flex-direction: column; gap: 5px; cursor: pointer; padding: 8px; background: none; border: none; }
+.hamburger span { display: block; width: 22px; height: 2px; background: var(--glory-gold); border-radius: 1px; }
+
+/* Hero */
+.about-hero {
+  background: var(--midnight-blue);
+  position: relative;
+  overflow: hidden;
+  padding: 80px 24px;
+  text-align: center;
+}
+.about-hero::before {
+  content: '';
+  position: absolute;
+  top: -20%;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 600px;
+  height: 600px;
+  background: radial-gradient(circle, rgba(200,163,89,0.12) 0%, transparent 65%);
+  pointer-events: none;
+}
+.hero-logo {
+  height: 120px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 28px;
+  position: relative;
+  filter: drop-shadow(0 4px 24px rgba(200,163,89,0.2));
+}
+.hero-title {
+  font-family: var(--font-serif-tc);
+  font-weight: 700;
+  font-size: 36px;
+  color: #FFFFFF;
+  margin-bottom: 12px;
+  position: relative;
+  letter-spacing: 3px;
+}
+.hero-title-en {
+  font-family: var(--font-heading-en);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--glory-gold);
+  letter-spacing: 5px;
+  text-transform: uppercase;
+  margin-bottom: 20px;
+  position: relative;
+}
+.hero-subtitle {
+  font-family: var(--font-sans-tc);
+  font-weight: 300;
+  font-size: 18px;
+  color: rgba(255,255,255,0.6);
+  position: relative;
+  max-width: 480px;
+  margin: 0 auto;
+  line-height: 1.8;
+}
+.hero-divider {
+  width: 60px;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--glory-gold), transparent);
+  margin: 24px auto 0;
+  position: relative;
+}
+
+/* Content sections */
+.about-content {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 64px 24px 80px;
+  position: relative;
+  z-index: 1;
+}
+
+.about-section {
+  margin-bottom: 56px;
+}
+
+.about-section-label {
+  font-family: var(--font-heading-en);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--glory-gold-dark);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.about-section-label::before {
+  content: '';
+  display: inline-block;
+  width: 20px;
+  height: 2px;
+  background: linear-gradient(90deg, var(--glory-gold), var(--glory-gold-dark));
+}
+
+.about-section h2 {
+  font-family: var(--font-serif-tc);
+  font-weight: 700;
+  font-size: 24px;
+  color: var(--ink-black);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.about-section p {
+  font-family: var(--font-sans-tc);
+  font-weight: 400;
+  font-size: 16px;
+  line-height: 1.9;
+  color: var(--graphite);
+  margin-bottom: 16px;
+}
+
+.about-section p strong {
+  font-weight: 700;
+  color: var(--ink-black);
+}
+
+/* Pillars (3-column cards) */
+.pillars {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  margin: 32px 0;
+}
+
+.pillar-card {
+  background: #FFFFFF;
+  border: 1px solid var(--linen-line);
+  border-radius: 12px;
+  padding: 32px 24px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.pillar-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 20px rgba(9,24,43,0.06);
+}
+
+.pillar-icon {
+  width: 48px;
+  height: 48px;
+  margin: 0 auto 16px;
+}
+
+.pillar-title {
+  font-family: var(--font-serif-tc);
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--ink-black);
+  margin-bottom: 10px;
+}
+
+.pillar-desc {
+  font-family: var(--font-sans-tc);
+  font-size: 14px;
+  color: var(--graphite);
+  line-height: 1.7;
+}
+
+/* Brand values row */
+.values-row {
+  display: flex;
+  justify-content: center;
+  gap: 40px;
+  margin: 32px 0;
+  flex-wrap: wrap;
+}
+
+.value-item {
+  text-align: center;
+}
+
+.value-icon {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, rgba(240,214,149,0.15), rgba(200,163,89,0.08));
+  border: 1.5px solid rgba(200,163,89,0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 10px;
+}
+
+.value-icon svg {
+  width: 24px;
+  height: 24px;
+  stroke: var(--glory-gold);
+}
+
+.value-label {
+  font-family: var(--font-serif-tc);
+  font-weight: 600;
+  font-size: 15px;
+  color: var(--ink-black);
+}
+
+/* Quote block */
+.about-quote {
+  border-left: 3px solid var(--glory-gold);
+  background: rgba(240,214,149,0.07);
+  padding: 28px 32px;
+  border-radius: 0 12px 12px 0;
+  margin: 32px 0;
+}
+
+.about-quote p {
+  font-family: var(--font-serif-tc);
+  font-weight: 400;
+  font-size: 18px;
+  line-height: 1.8;
+  color: var(--ink-black);
+  margin-bottom: 12px;
+}
+
+.about-quote .quote-author {
+  font-family: var(--font-sans-tc);
+  font-weight: 400;
+  font-size: 14px;
+  color: var(--glory-gold-dark);
+}
+
+/* News link section */
+.about-cta {
+  text-align: center;
+  padding: 48px 32px;
+  background: var(--parchment);
+  border: 1px solid var(--linen-line);
+  border-radius: 16px;
+  margin-top: 48px;
+}
+
+.about-cta h3 {
+  font-family: var(--font-serif-tc);
+  font-weight: 600;
+  font-size: 20px;
+  color: var(--ink-black);
+  margin-bottom: 12px;
+}
+
+.about-cta p {
+  font-family: var(--font-sans-tc);
+  font-size: 15px;
+  color: var(--graphite);
+  margin-bottom: 24px;
+}
+
+.about-cta-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 32px;
+  background: linear-gradient(135deg, var(--glory-gold-light), var(--glory-gold));
+  color: var(--midnight-blue);
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font-sans-tc);
+  font-size: 15px;
+  font-weight: 600;
+  text-decoration: none;
+  letter-spacing: 1px;
+  transition: all 0.25s ease;
+}
+
+.about-cta-btn:hover {
+  background: linear-gradient(135deg, var(--glory-gold), var(--glory-gold-dark));
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(200,163,89,0.3);
+}
+
+/* Footer */
+.footer { background: var(--midnight-blue); padding: 48px 24px 32px; position: relative; z-index: 1; }
+.footer::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px; background: linear-gradient(90deg, transparent 0%, #9E7D3D 20%, #F0D695 50%, #9E7D3D 80%, transparent 100%); }
+.footer-inner { max-width: 820px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 24px; }
+.footer-brand { display: flex; align-items: center; gap: 12px; }
+.footer-logo-img { height: 36px; width: auto; object-fit: contain; border-radius: 2px; }
+.footer-slogan { font-family: var(--font-sans-tc); color: rgba(255,255,255,0.4); font-size: 12px; margin-top: 4px; }
+.footer-links { display: flex; gap: 24px; }
+.footer-links a { font-family: var(--font-sans-tc); color: rgba(255,255,255,0.5); text-decoration: none; font-size: 13px; transition: color 0.25s ease; }
+.footer-links a:hover { color: var(--glory-gold-light); }
+.footer-copyright { width: 100%; text-align: center; margin-top: 24px; padding-top: 24px; border-top: 1px solid rgba(255,255,255,0.06); font-family: var(--font-body-en); font-size: 12px; color: rgba(255,255,255,0.25); letter-spacing: 0.5px; }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .header-nav { display: none; }
+  .header-nav.open { display: flex; flex-direction: column; position: absolute; top: 68px; left: 0; right: 0; background: var(--midnight-blue); padding: 24px; gap: 20px; border-bottom: 2px solid rgba(200,163,89,0.2); }
+  .hamburger { display: flex; }
+  .header-slogan { display: none; }
+  .about-hero { padding: 56px 24px; }
+  .hero-title { font-size: 28px; }
+  .hero-logo { height: 90px; }
+  .hero-subtitle { font-size: 16px; }
+  .pillars { grid-template-columns: 1fr; }
+  .values-row { gap: 24px; }
+  .about-quote { padding: 20px 24px; }
+  .about-quote p { font-size: 16px; }
+  .footer-inner { justify-content: center; text-align: center; }
+  .footer-brand { flex-direction: column; }
+}
+
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.about-section { animation: fadeInUp 0.6s ease forwards; }
+.about-section:nth-child(2) { animation-delay: 0.1s; }
+.about-section:nth-child(3) { animation-delay: 0.2s; }
+.about-section:nth-child(4) { animation-delay: 0.3s; }
+</style>
+</head>
+<body>
+
+<!-- ===== HEADER ===== -->
+<header class="header">
+  <div class="header-inner">
+    <a href="index.html" class="header-logo">
+      <img class="logo-img" src="WCA_logo.png" alt="WCA Logo">
+      <span class="header-slogan">白袍加速器 — 醫療創業的金標準</span>
+    </a>
+    <button class="hamburger" onclick="document.querySelector('.header-nav').classList.toggle('open')">
+      <span></span><span></span><span></span>
+    </button>
+    <nav class="header-nav">
+      <a href="index.html">最新</a>
+      <a href="index.html">分類</a>
+      <a href="about.html" class="active">關於</a>
+      <a href="index.html#newsletter" class="nav-subscribe">訂閱電子報</a>
+    </nav>
+  </div>
+  <div class="header-divider"></div>
+</header>
+
+<!-- ===== HERO ===== -->
+<section class="about-hero">
+  <img class="hero-logo" src="WCA_logo.png" alt="WCA White Coat Accelerator">
+  <h1 class="hero-title">白袍加速器</h1>
+  <div class="hero-title-en">White Coat Accelerator</div>
+  <p class="hero-subtitle">醫療創業的戰情室，診所經營的金標準</p>
+  <div class="hero-divider"></div>
+</section>
+
+<!-- ===== CONTENT ===== -->
+<div class="about-content">
+
+  <!-- Mission -->
+  <div class="about-section">
+    <div class="about-section-label">Our Mission</div>
+    <h2>讓每一件白袍，都擁有創業的翅膀</h2>
+    <p>WCA 白袍加速器由<strong>陳欽章醫師（Casper）</strong>創辦，專為醫療創業者打造的加速平台。我們深信，台灣醫師不只是優秀的臨床工作者，更擁有成為卓越經營者的潛力。</p>
+    <p>從「穿上白袍的那一刻」到「脫下白袍之後」，我們陪伴醫療人走過創業最關鍵的每一步——從診所經營管理、團隊領導力培養，到醫療新創的商業模式設計與資本對接。</p>
+    <p>WCA 不只是一個加速器，更是一個<strong>醫療創業者的戰情室</strong>——在這裡，學院派的深厚底蘊與現代商業的精準戰略交匯，為白袍創業者鍛造出醫療產業的金標準。</p>
+  </div>
+
+  <!-- Quote -->
+  <div class="about-quote">
+    <p>「脫掉白袍，你是誰？」</p>
+    <p>醫學院沒有教過我們如何管理時間、如何建立有意義的關係、如何在忙碌的白袍生涯裡，活出自己想要的人生。WCA 想回答的，正是這個問題。</p>
+    <span class="quote-author">— Casper 陳欽章醫師，WCA 創辦人</span>
+  </div>
+
+  <!-- Three Pillars -->
+  <div class="about-section">
+    <div class="about-section-label">Three Pillars</div>
+    <h2>每日精選三大主軸</h2>
+    <p>WCA 每日醫療新聞精選，聚焦全球醫療產業最前沿的三大議題，讓醫療經營者五分鐘掌握關鍵動態：</p>
+
+    <div class="pillars">
+      <div class="pillar-card">
+        <svg class="pillar-icon" viewBox="0 0 48 52" fill="none">
+          <path d="M24 4L6 14v12c0 11.2 7.6 21.6 18 24 10.4-2.4 18-12.8 18-24V14L24 4z" stroke="#C8A359" stroke-width="2" fill="rgba(200,163,89,0.06)"/>
+          <path d="M17 24l4 4 10-10" stroke="#C8A359" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="pillar-title">診所經營管理</div>
+        <div class="pillar-desc">從營運效率、財務紀律到患者體驗，掌握全球診所經營的最新趨勢與策略</div>
+      </div>
+      <div class="pillar-card">
+        <svg class="pillar-icon" viewBox="0 0 48 48" fill="none">
+          <circle cx="10" cy="17" r="4" stroke="#C8A359" stroke-width="1.5" fill="rgba(200,163,89,0.04)"/>
+          <path d="M2 42v-2a8 8 0 018-8" stroke="#C8A359" stroke-width="2" fill="none"/>
+          <circle cx="38" cy="17" r="4" stroke="#C8A359" stroke-width="1.5" fill="rgba(200,163,89,0.04)"/>
+          <path d="M46 42v-2a8 8 0 00-8-8" stroke="#C8A359" stroke-width="2" fill="none"/>
+          <circle cx="24" cy="14" r="6" stroke="#C8A359" stroke-width="2" fill="rgba(200,163,89,0.06)"/>
+          <path d="M12 42v-3c0-6 5.4-11 12-11s12 5 12 11v3" stroke="#C8A359" stroke-width="2" fill="none"/>
+        </svg>
+        <div class="pillar-title">醫療人才領導</div>
+        <div class="pillar-desc">培育白袍CEO，從臨床到管理的領導力轉型、團隊建設與人才梯隊規劃</div>
+      </div>
+      <div class="pillar-card">
+        <svg class="pillar-icon" viewBox="0 0 48 48" fill="none">
+          <path d="M26 4L6 28h18l-2 16 20-24H24l2-16z" stroke="#C8A359" stroke-width="2" fill="rgba(200,163,89,0.06)" stroke-linejoin="round"/>
+        </svg>
+        <div class="pillar-title">醫療新創</div>
+        <div class="pillar-desc">追蹤全球醫療科技融資、AI 醫療突破，為台灣醫療新創加速器提供方向</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Brand Values -->
+  <div class="about-section">
+    <div class="about-section-label">Brand Values</div>
+    <h2>品牌核心價值</h2>
+    <p>WCA 的視覺識別並非單純的裝飾，而是醫療創新卓越品質的具體展現。我們存在於歷史重量與未來速度的交匯點。</p>
+
+    <div class="values-row">
+      <div class="value-item">
+        <div class="value-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M4 20V6a2 2 0 012-2h4l2 2h6a2 2 0 012 2v12a2 2 0 01-2 2H6a2 2 0 01-2-2z"/><line x1="9" y1="10" x2="9" y2="16"/><line x1="9" y1="16" x2="9" y2="16" stroke-linecap="round"/></svg>
+        </div>
+        <div class="value-label">經典</div>
+      </div>
+      <div class="value-item">
+        <div class="value-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><path d="M12 2l2.09 6.26L20 9.27l-4.91 3.82L16.18 20 12 16.77 7.82 20l1.09-6.91L4 9.27l5.91-1.01L12 2z"/></svg>
+        </div>
+        <div class="value-label">權威</div>
+      </div>
+      <div class="value-item">
+        <div class="value-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke-width="1.5"><circle cx="12" cy="12" r="10"/><path d="M8 12l3 3 5-5"/></svg>
+        </div>
+        <div class="value-label">榮耀</div>
+      </div>
+      <div class="value-item">
+        <div class="value-icon">
+          <svg viewBox="0 0 24 26" fill="none" stroke-width="1.5"><path d="M12 2L3 7v6c0 5.6 3.8 10.8 9 12 5.2-1.2 9-6.4 9-12V7l-9-5z"/></svg>
+        </div>
+        <div class="value-label">守護</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- About the News -->
+  <div class="about-section">
+    <div class="about-section-label">Daily Intelligence</div>
+    <h2>關於每日醫療新聞精選</h2>
+    <p>每天早上，WCA 新聞研究團隊從<strong>全球前 100 大醫療媒體</strong>中精選三篇最具戰略價值的報導，涵蓋診所經營管理、醫療人才領導、醫療新創三大主軸。</p>
+    <p>每篇報導不只翻譯摘要，更附上<strong>「WCA Insight」</strong>——從台灣醫療創業者的視角出發，解讀國際趨勢對本土市場的啟示，讓每位白袍經營者都能在五分鐘內掌握全球醫療產業的關鍵脈動。</p>
+    <p>這不只是新聞，更是醫療經營者的<strong>每日戰情儀表板</strong>。</p>
+  </div>
+
+  <!-- CTA -->
+  <div class="about-cta">
+    <h3>開始閱讀今日精選</h3>
+    <p>五分鐘掌握全球醫療產業關鍵動態</p>
+    <a href="index.html" class="about-cta-btn">
+      前往最新日報
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+    </a>
+  </div>
+
+</div>
+
+<!-- ===== FOOTER ===== -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <img class="footer-logo-img" src="WCA_logo.png" alt="WCA Logo">
+      <div>
+        <div class="footer-slogan">白袍加速器 — 醫療創業的金標準</div>
+      </div>
+    </div>
+    <div class="footer-links">
+      <a href="about.html">關於 WCA</a>
+      <a href="#">加速器計畫</a>
+      <a href="#">聯絡我們</a>
+    </div>
+    <div class="footer-copyright">&copy; 2026 White Coat Accelerator. All Rights Reserved.</div>
+  </div>
+</footer>
+
+</body>
+</html>
