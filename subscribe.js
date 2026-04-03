@@ -17,7 +17,7 @@
           })
           .then(function(r) { return r.json(); })
           .then(function(data) {
-                  if (data.success) {
+                  if (data.subscribed) {
                             btn.textContent = '\u2714 \u5df2\u8a02\u95b1';
                             btn.style.background = '#2D7D46';
                             input.value = '';
