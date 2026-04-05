@@ -838,7 +838,9 @@ function escHtml(s) {
 function formatDate(d) {
   if (!d) return '—';
   try {
-    return new Date(d).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+    // SQLite returns UTC times without 'Z' suffix — append it so the browser parses as UTC
+    const utc = d.endsWith('Z') || d.includes('+') ? d : d.replace(' ', 'T') + 'Z';
+    return new Date(utc).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   } catch { return d; }
 }
 
