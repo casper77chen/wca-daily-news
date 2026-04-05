@@ -1509,81 +1509,62 @@ function renderHistory(datesData, currentDate) {
     return;
   }
 
-  // Group dates by year-month
-  const groups = {};
-  allDates.forEach(d => {
-    const ym = d.date.substring(0, 7); // "2026-04"
-    if (!groups[ym]) groups[ym] = [];
-    groups[ym].push(d);
-  });
-
-  // Sort year-months descending
-  const sortedMonths = Object.keys(groups).sort().reverse();
-
-  // Determine current month (from the page's displayed date)
-  const currentYM = currentDate ? currentDate.substring(0, 7) : sortedMonths[0];
+  // Recent 3 days as cards, rest goes into collapsible timeline
+  const recentDates = allDates.slice(0, 3);
+  const olderDates = allDates.slice(3);
 
   let html = '';
 
-  sortedMonths.forEach((ym, monthIdx) => {
-    const dates = groups[ym];
-    const isCurrentMonth = (ym === currentYM);
-
-    if (isCurrentMonth) {
-      // Current month: show as grid cards
-      html += '<div class="history-list">';
-      dates.forEach(d => {
-        const href = '?date=' + d.date;
-        html += '<a href="' + href + '" class="history-item">';
-        html += '  <div class="history-date">' + d.date + '</div>';
-        html += '  <div class="history-weekday">' + d.weekday + '</div>';
-        html += '  <div class="history-topics">';
-        (d.articles || []).forEach(a => {
-          const cat = a.category || 'clinic';
-          html += '    <div class="history-topic"><span class="history-topic-dot dot--' + cat + '"></span>' + escapeHtml(a.title) + '</div>';
-        });
-        html += '  </div>';
-        html += '</a>';
-      });
-      html += '</div>';
-    } else {
-      // Previous months: collapsible timeline with pagination
-      const parts = ym.split('-');
-      const yearNum = parts[0];
-      const monthLabel = MONTH_NAMES[parts[1]] || parts[1];
-      const blockId = 'month-block-' + ym;
-      const timelineId = 'timeline-' + ym;
-      const pageInfoId = 'page-info-' + ym;
-      const newerBtnId = 'newer-btn-' + ym;
-      const olderBtnId = 'older-btn-' + ym;
-
-      html += '<div class="month-block" id="' + blockId + '">';
-      html += '  <button class="month-toggle" onclick="toggleMonth(\'' + blockId + '\', \'' + ym + '\')">';
-      html += '    <span class="month-toggle-label">' + yearNum + ' 年 ' + monthLabel + '</span>';
-      html += '    <span class="month-toggle-line"></span>';
-      html += '    <span class="month-toggle-arrow">';
-      html += '      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>';
-      html += '    </span>';
-      html += '  </button>';
-      html += '  <div class="month-content">';
-      html += '    <div class="timeline" id="' + timelineId + '"></div>';
-      html += '    <div class="tl-pagination">';
-      html += '      <button class="tl-page-btn" id="' + newerBtnId + '" onclick="monthPage(\'' + ym + '\', -1)" title="更近三天">';
-      html += '        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>';
-      html += '      </button>';
-      html += '      <span class="tl-page-info" id="' + pageInfoId + '"></span>';
-      html += '      <button class="tl-page-btn tl-page-btn--earlier" id="' + olderBtnId + '" onclick="monthPage(\'' + ym + '\', 1)" title="更早三天">';
-      html += '        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
-      html += '      </button>';
-      html += '    </div>';
-      html += '  </div>';
-      html += '</div>';
-
-      // Store data for pagination
-      monthDataStore[ym] = dates;
-      monthPageIndices[ym] = 0;
-    }
+  // Recent 3 days: show as grid cards
+  html += '<div class="history-list">';
+  recentDates.forEach(d => {
+    const href = '?date=' + d.date;
+    html += '<a href="' + href + '" class="history-item">';
+    html += '  <div class="history-date">' + d.date + '</div>';
+    html += '  <div class="history-weekday">' + d.weekday + '</div>';
+    html += '  <div class="history-topics">';
+    (d.articles || []).forEach(a => {
+      const cat = a.category || 'clinic';
+      html += '    <div class="history-topic"><span class="history-topic-dot dot--' + cat + '"></span>' + escapeHtml(a.title) + '</div>';
+    });
+    html += '  </div>';
+    html += '</a>';
   });
+  html += '</div>';
+
+  // Older dates: collapsible timeline with pagination
+  if (olderDates.length > 0) {
+    const blockId = 'month-block-older';
+    const timelineId = 'timeline-older';
+    const pageInfoId = 'page-info-older';
+    const newerBtnId = 'newer-btn-older';
+    const olderBtnId = 'older-btn-older';
+
+    html += '<div class="month-block" id="' + blockId + '">';
+    html += '  <button class="month-toggle" onclick="toggleMonth(\'' + blockId + '\', \'older\')">';
+    html += '    <span class="month-toggle-label">更早的日報</span>';
+    html += '    <span class="month-toggle-line"></span>';
+    html += '    <span class="month-toggle-arrow">';
+    html += '      <svg viewBox="0 0 24 24" fill="none" stroke-width="2.5"><path d="M6 9l6 6 6-6"/></svg>';
+    html += '    </span>';
+    html += '  </button>';
+    html += '  <div class="month-content">';
+    html += '    <div class="timeline" id="' + timelineId + '"></div>';
+    html += '    <div class="tl-pagination">';
+    html += '      <button class="tl-page-btn" id="' + newerBtnId + '" onclick="monthPage(\'older\', -1)" title="更近三天">';
+    html += '        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg>';
+    html += '      </button>';
+    html += '      <span class="tl-page-info" id="' + pageInfoId + '"></span>';
+    html += '      <button class="tl-page-btn tl-page-btn--earlier" id="' + olderBtnId + '" onclick="monthPage(\'older\', 1)" title="更早三天">';
+    html += '        <svg viewBox="0 0 24 24" fill="none" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>';
+    html += '      </button>';
+    html += '    </div>';
+    html += '  </div>';
+    html += '</div>';
+
+    monthDataStore['older'] = olderDates;
+    monthPageIndices['older'] = 0;
+  }
 
   container.innerHTML = html;
 }
