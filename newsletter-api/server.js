@@ -108,13 +108,51 @@ async function sendViaZeaburMail({ to, subject, html, from, fromName }) {
 }
 
 // ===== Helper: Build newsletter HTML =====
-function buildNewsletterHTML(date) {
+function buildNewsletterHTML(date, articles) {
   const today = date || new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  const siteUrl = CONFIG.SITE_URL;
+  const readMoreUrl = `${siteUrl}/news/?date=${today}`;
 
-  // Try to load today's news HTML file
-  const newsFilePath = join(__dirname, '..', 'news', `${today}.html`);
+  const categoryLabels = { clinic: '診所經營管理', talent: '醫療領導人才', startup: '醫療科技新創' };
+  const categorySvgs = {
+    clinic: '<svg viewBox="3 2 18 24" width="14" height="16" style="vertical-align:-3px;margin-right:5px;" fill="none" stroke="#09182B" stroke-width="1.5"><path d="M12 3L4 7.5v5.5c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V7.5l-8-4.5z"/></svg>',
+    talent: '<svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:5px;" fill="none" stroke="#09182B" stroke-width="1.8"><circle cx="12" cy="8" r="4.5"/><path d="M4 21v-2a7 7 0 0114 0v2"/></svg>',
+    startup: '<svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:5px;" fill="none" stroke="#09182B" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+  };
+  const articleNumbers = ['Article I', 'Article II', 'Article III'];
 
-  // Build email template
+  // Build article cards HTML
+  const articlesHtml = (articles || []).map((a, i) => {
+    const label = categoryLabels[a.category] || a.category;
+    const icon = categorySvgs[a.category] || '';
+
+    // Strip HTML tags from body for email-safe plain text summary
+    const plainBody = a.body.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
+    // Take first 200 chars as preview
+    const preview = plainBody.length > 200 ? plainBody.slice(0, 200) + '…' : plainBody;
+
+    return `
+      <!-- Article ${i + 1} -->
+      <table role="presentation" width="640" style="max-width:640px; background-color:#FFFFFF;">
+        <tr>
+          <td style="padding: 0 32px 8px;">
+            ${i === 0 ? '' : '<div style="height: 1px; background: #E5E2DB; margin-bottom: 24px;"></div>'}
+            <div style="display: inline-block; padding: 5px 14px; background: linear-gradient(135deg, #F0D695, #C8A359); color: #09182B; font-size: 12px; font-weight: 500; border-radius: 4px; letter-spacing: 0.5px;">
+              ${icon}${label}
+            </div>
+            <div style="font-size: 11px; color: #8C8C8C; letter-spacing: 2px; margin-top: 12px;">— ${articleNumbers[i] || `Article ${i + 1}`} —</div>
+            <h2 style="font-size: 18px; font-weight: 700; color: #09182B; line-height: 1.6; margin: 8px 0 12px;">${a.title}</h2>
+            <div style="font-size: 12px; color: #8C8C8C; margin-bottom: 16px;">${a.source_name} ｜ ${today} ｜ 閱讀 ${a.reading_time} 分鐘</div>
+            <p style="font-size: 14px; color: #5A5A5A; line-height: 1.9; margin: 0 0 16px;">${preview}</p>
+            <div style="background: #FAFAF7; border-left: 3px solid #C8A359; padding: 16px 20px; border-radius: 0 8px 8px 0; margin-bottom: 24px;">
+              <div style="font-size: 11px; color: #C8A359; font-weight: 600; letter-spacing: 1px; margin-bottom: 8px;">WCA INSIGHT</div>
+              <p style="font-size: 13px; color: #5A5A5A; line-height: 1.8; margin: 0;">${a.wca_insight.length > 150 ? a.wca_insight.slice(0, 150) + '…' : a.wca_insight}</p>
+            </div>
+          </td>
+        </tr>
+      </table>`;
+  }).join('\n');
+
   return `
 <!DOCTYPE html>
 <html lang="zh-TW">
@@ -124,17 +162,15 @@ function buildNewsletterHTML(date) {
 </head>
 <body style="margin:0; padding:0; background-color:#FAFAF7; font-family: 'Helvetica Neue', Arial, 'Noto Sans TC', sans-serif;">
   <table role="presentation" width="100%" style="background-color:#FAFAF7;">
-    <tr><td align="center" style="padding: 0;">
+    <tr><td align="center" style="padding: 20px 0;">
 
       <!-- Header -->
       <table role="presentation" width="640" style="max-width:640px; background-color:#09182B; border-radius: 12px 12px 0 0;">
         <tr>
           <td style="padding: 28px 32px; text-align: center;">
-            <div style="font-family: 'Cinzel', serif; font-size: 20px; font-weight: 700; color: #C8A359; letter-spacing: 3px;">
-              WCA
-            </div>
-            <div style="font-family: 'Noto Sans TC', sans-serif; font-size: 12px; color: rgba(255,255,255,0.55); letter-spacing: 2px; margin-top: 4px;">
-              白袍加速器 — 每日醫療新聞精選
+            <img src="${siteUrl}/news/WCA_logo.png" alt="WCA" width="80" height="80" style="display: block; margin: 0 auto 8px; border-radius: 4px;" />
+            <div style="font-size: 12px; color: rgba(255,255,255,0.55); letter-spacing: 2px; margin-top: 4px;">
+              WCA 白袍加速器 — 每日醫療新聞精選
             </div>
             <div style="height: 2px; background: linear-gradient(90deg, transparent, #9E7D3D 30%, #F0D695 50%, #9E7D3D 70%, transparent); margin-top: 16px;"></div>
           </td>
@@ -144,23 +180,26 @@ function buildNewsletterHTML(date) {
       <!-- Date Banner -->
       <table role="presentation" width="640" style="max-width:640px; background-color:#FFFFFF;">
         <tr>
-          <td style="padding: 28px 32px 20px; text-align: center;">
+          <td style="padding: 28px 32px 12px; text-align: center;">
             <div style="font-size: 13px; color: #C8A359; letter-spacing: 3px; text-transform: uppercase;">Daily Medical Briefing</div>
             <div style="font-size: 22px; font-weight: 700; color: #09182B; margin-top: 8px;">${today}</div>
           </td>
         </tr>
       </table>
 
-      <!-- CTA to read online -->
+${articlesHtml}
+
+      <!-- CTA: Read More on Website -->
       <table role="presentation" width="640" style="max-width:640px; background-color:#FFFFFF;">
         <tr>
-          <td style="padding: 0 32px 28px; text-align: center;">
-            <p style="font-size: 15px; color: #5A5A5A; line-height: 1.8; margin-bottom: 20px;">
-              今日三篇全球醫療精選已為您準備好，點擊下方按鈕閱讀完整報導與 WCA 獨家洞察。
+          <td style="padding: 8px 32px 32px; text-align: center;">
+            <div style="height: 1px; background: #E5E2DB; margin-bottom: 28px;"></div>
+            <p style="font-size: 14px; color: #5A5A5A; margin-bottom: 20px;">
+              閱讀完整報導、WCA 獨家洞察與更多歷史日報 →
             </p>
-            <a href="${CONFIG.SITE_URL}/news/${today}.html"
+            <a href="${readMoreUrl}"
                style="display: inline-block; padding: 14px 36px; background: linear-gradient(135deg, #C8A359, #9E7D3D); color: #FFFFFF; text-decoration: none; font-size: 15px; font-weight: 600; border-radius: 8px; letter-spacing: 1px;">
-              閱讀今日精選 →
+              前往網站閱讀完整版
             </a>
           </td>
         </tr>
@@ -172,7 +211,7 @@ function buildNewsletterHTML(date) {
           <td style="padding: 24px 32px; text-align: center;">
             <div style="font-size: 11px; color: rgba(255,255,255,0.4); line-height: 1.8;">
               WCA 白袍加速器 — 醫療創業的金質標準<br>
-              <a href="${CONFIG.SITE_URL}/api/unsubscribe?email={{EMAIL}}" style="color: #C8A359; text-decoration: underline;">取消訂閱</a>
+              <a href="${siteUrl}/api/unsubscribe?email={{EMAIL}}" style="color: #C8A359; text-decoration: underline;">取消訂閱</a>
             </div>
           </td>
         </tr>
@@ -194,8 +233,15 @@ async function sendDailyNewsletter(date) {
     return { sent: 0, message: 'No active subscribers' };
   }
 
+  // Fetch today's articles from DB
+  const articles = db.prepare('SELECT * FROM articles WHERE date = ? ORDER BY id ASC').all(today);
+  if (articles.length === 0) {
+    console.log(`[${today}] No articles found for today. Skipping.`);
+    return { sent: 0, message: 'No articles for today' };
+  }
+
   const subject = `WCA 每日醫療精選 — ${today}`;
-  const htmlTemplate = buildNewsletterHTML(today);
+  const htmlTemplate = buildNewsletterHTML(today, articles);
 
   let successCount = 0;
   let errors = [];
