@@ -40,7 +40,7 @@ app.use(cors({
   origin: process.env.ALLOWED_ORIGINS
     ? process.env.ALLOWED_ORIGINS.split(',')
     : ['*'],
-  methods: ['GET', 'POST'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE'],
 }));
 app.use(express.json());
 
@@ -66,6 +66,20 @@ db.exec(`
     status TEXT DEFAULT 'success',
     error_message TEXT
   );
+  CREATE TABLE IF NOT EXISTS articles (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    date TEXT NOT NULL,
+    category TEXT NOT NULL CHECK(category IN ('clinic', 'talent', 'startup')),
+    title TEXT NOT NULL,
+    source_name TEXT NOT NULL,
+    reading_time TEXT DEFAULT '4',
+    body TEXT NOT NULL,
+    wca_insight TEXT NOT NULL,
+    original_url TEXT NOT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+  );
+  CREATE INDEX IF NOT EXISTS idx_articles_date ON articles(date);
 `);
 
 // ===== Helper: Send email via Zeabur Mail =====
@@ -391,6 +405,197 @@ app.get('/api/admin/send-log', (req, res) => {
 
   const log = db.prepare('SELECT * FROM send_log ORDER BY sent_at DESC LIMIT 30').all();
   res.json({ log });
+});
+
+// ===== Helper: Get Chinese weekday =====
+function getWeekday(dateStr) {
+  const weekdays = ['星期日', '星期一', '星期二', '星期三', '星期四', '星期五', '星期六'];
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date(year, month - 1, day);
+  return weekdays[d.getDay()];
+}
+
+// ===== Public Article Routes =====
+
+// Get latest date's articles
+app.get('/api/articles/latest', (req, res) => {
+  try {
+    const latest = db.prepare('SELECT DISTINCT date FROM articles ORDER BY date DESC LIMIT 1').get();
+
+    if (!latest) {
+      return res.json({ date: null, weekday: null, articles: [] });
+    }
+
+    const articles = db.prepare(
+      'SELECT id, category, title, source_name, reading_time, body, wca_insight, original_url FROM articles WHERE date = ? ORDER BY id ASC'
+    ).all(latest.date);
+
+    res.json({ date: latest.date, weekday: getWeekday(latest.date), articles });
+  } catch (err) {
+    console.error('Get latest articles error:', err);
+    res.status(500).json({ error: '取得文章時發生錯誤' });
+  }
+});
+
+// Get all available dates with article summaries
+app.get('/api/articles/dates', (req, res) => {
+  try {
+    const rows = db.prepare(
+      'SELECT date, category, title FROM articles ORDER BY date DESC, id ASC'
+    ).all();
+
+    const dateMap = new Map();
+    for (const row of rows) {
+      if (!dateMap.has(row.date)) {
+        dateMap.set(row.date, []);
+      }
+      dateMap.get(row.date).push({ category: row.category, title: row.title });
+    }
+
+    const dates = [];
+    for (const [date, articles] of dateMap) {
+      dates.push({ date, weekday: getWeekday(date), articles });
+    }
+
+    res.json({ dates });
+  } catch (err) {
+    console.error('Get article dates error:', err);
+    res.status(500).json({ error: '取得日期列表時發生錯誤' });
+  }
+});
+
+// Get articles by date
+app.get('/api/articles', (req, res) => {
+  const { date } = req.query;
+
+  if (!date) {
+    return res.status(400).json({ error: '請提供 date 參數 (YYYY-MM-DD)' });
+  }
+
+  try {
+    const articles = db.prepare(
+      'SELECT id, category, title, source_name, reading_time, body, wca_insight, original_url FROM articles WHERE date = ? ORDER BY id ASC'
+    ).all(date);
+
+    res.json({ date, weekday: getWeekday(date), articles });
+  } catch (err) {
+    console.error('Get articles by date error:', err);
+    res.status(500).json({ error: '取得文章時發生錯誤' });
+  }
+});
+
+// ===== Admin Article Routes =====
+
+// Admin: List all articles
+app.get('/api/admin/articles', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${CONFIG.ADMIN_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const { date } = req.query;
+    let articles;
+    if (date) {
+      articles = db.prepare('SELECT * FROM articles WHERE date = ? ORDER BY id ASC').all(date);
+    } else {
+      articles = db.prepare('SELECT * FROM articles ORDER BY date DESC, id ASC').all();
+    }
+    res.json({ articles });
+  } catch (err) {
+    console.error('Admin list articles error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Create article
+app.post('/api/admin/articles', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${CONFIG.ADMIN_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const { date, category, title, source_name, reading_time, body, wca_insight, original_url } = req.body;
+
+    if (!date || !category || !title || !source_name || !body || !wca_insight || !original_url) {
+      return res.status(400).json({ error: '缺少必要欄位' });
+    }
+
+    const result = db.prepare(`
+      INSERT INTO articles (date, category, title, source_name, reading_time, body, wca_insight, original_url)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    `).run(date, category, title, source_name, reading_time || '4', body, wca_insight, original_url);
+
+    res.json({ id: result.lastInsertRowid, message: '文章已建立' });
+  } catch (err) {
+    console.error('Admin create article error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Update article
+app.put('/api/admin/articles/:id', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${CONFIG.ADMIN_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const { id } = req.params;
+    const existing = db.prepare('SELECT * FROM articles WHERE id = ?').get(id);
+
+    if (!existing) {
+      return res.status(404).json({ error: '找不到該文章' });
+    }
+
+    const fields = ['date', 'category', 'title', 'source_name', 'reading_time', 'body', 'wca_insight', 'original_url'];
+    const updates = [];
+    const values = [];
+
+    for (const field of fields) {
+      if (req.body[field] !== undefined) {
+        updates.push(`${field} = ?`);
+        values.push(req.body[field]);
+      }
+    }
+
+    if (updates.length === 0) {
+      return res.status(400).json({ error: '沒有提供要更新的欄位' });
+    }
+
+    updates.push('updated_at = CURRENT_TIMESTAMP');
+    values.push(id);
+
+    db.prepare(`UPDATE articles SET ${updates.join(', ')} WHERE id = ?`).run(...values);
+
+    res.json({ message: '文章已更新' });
+  } catch (err) {
+    console.error('Admin update article error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Delete article
+app.delete('/api/admin/articles/:id', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${CONFIG.ADMIN_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const { id } = req.params;
+    const result = db.prepare('DELETE FROM articles WHERE id = ?').run(id);
+
+    if (result.changes === 0) {
+      return res.status(404).json({ error: '找不到該文章' });
+    }
+
+    res.json({ message: '文章已刪除' });
+  } catch (err) {
+    console.error('Admin delete article error:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 // ===== Cron: Daily 8:00 AM Taiwan Time =====

@@ -288,6 +288,135 @@ tr:hover td { background: #FAFAF7; }
 .send-result.ok { background: #E8F5E9; color: var(--medical-green); display: block; }
 .send-result.err { background: #FDECEA; color: var(--danger-red); display: block; }
 
+/* ===== Articles Panel ===== */
+.articles-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.articles-toolbar .form-input { width: auto; }
+.btn-add-article {
+  padding: 10px 20px;
+  background: var(--midnight-blue);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: opacity .2s;
+}
+.btn-add-article:hover { opacity: 0.85; }
+
+.article-list { display: flex; flex-direction: column; gap: 10px; }
+.article-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px 22px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.article-card-info { flex: 1; min-width: 200px; }
+.article-card-title { font-weight: 600; font-size: 15px; margin-bottom: 4px; color: var(--ink-black); }
+.article-card-source { font-size: 13px; color: var(--platinum); }
+.article-card-actions { display: flex; gap: 8px; }
+.btn-edit-article, .btn-delete-article {
+  padding: 6px 14px;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: opacity .2s;
+}
+.btn-edit-article { background: #E3F2FD; color: #1565C0; }
+.btn-edit-article:hover { opacity: 0.75; }
+.btn-delete-article { background: #FDECEA; color: var(--danger-red); }
+.btn-delete-article:hover { opacity: 0.75; }
+
+.category-badge {
+  display: inline-block;
+  padding: 3px 12px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #fff;
+  white-space: nowrap;
+}
+.category-badge.clinic { background: #2D7D46; }
+.category-badge.talent { background: #1565C0; }
+.category-badge.startup { background: #E65100; }
+
+.article-form-wrap {
+  background: #fff;
+  border-radius: 12px;
+  padding: 28px 28px 20px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  margin-bottom: 20px;
+  display: none;
+}
+.article-form-wrap.visible { display: block; }
+.article-form-wrap h3 { font-size: 18px; margin-bottom: 20px; color: var(--midnight-blue); }
+.article-form-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px 20px;
+}
+.article-form-grid .form-group.full { grid-column: 1 / -1; }
+.article-form-grid .form-input,
+.article-form-grid select.form-input,
+.article-form-grid textarea.form-input {
+  width: 100%;
+}
+.article-form-grid textarea.form-input {
+  min-height: 100px;
+  resize: vertical;
+}
+.article-form-actions {
+  display: flex;
+  gap: 10px;
+  margin-top: 20px;
+}
+.btn-save-article {
+  padding: 12px 28px;
+  background: linear-gradient(135deg, var(--glory-gold), var(--glory-gold-dark));
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: opacity .2s;
+}
+.btn-save-article:hover { opacity: 0.85; }
+.btn-save-article:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-cancel-article {
+  padding: 12px 28px;
+  background: var(--linen-line);
+  color: var(--graphite);
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: opacity .2s;
+}
+.btn-cancel-article:hover { opacity: 0.75; }
+
+@media (max-width: 640px) {
+  .article-form-grid { grid-template-columns: 1fr; }
+  .article-card { flex-direction: column; align-items: flex-start; }
+  .articles-toolbar { flex-direction: column; align-items: stretch; }
+}
+
 /* ===== Loading ===== */
 .spinner {
   display: inline-block;
@@ -373,6 +502,7 @@ tr:hover td { background: #FAFAF7; }
       <button class="tab-btn active" onclick="switchTab('subscribers')">訂閱者列表</button>
       <button class="tab-btn" onclick="switchTab('send-log')">發送紀錄</button>
       <button class="tab-btn" onclick="switchTab('send-newsletter')">手動發送</button>
+      <button class="tab-btn" onclick="switchTab('articles')">文章管理</button>
     </div>
 
     <!-- Tab: Subscribers -->
@@ -419,6 +549,65 @@ tr:hover td { background: #FAFAF7; }
         <div class="send-result" id="send-result"></div>
       </div>
     </div>
+
+    <!-- Tab: Articles -->
+    <div class="tab-panel" id="panel-articles">
+      <div class="articles-toolbar">
+        <label class="form-label" style="margin-bottom:0;">篩選日期</label>
+        <input type="date" class="form-input" id="articles-date" onchange="loadArticles()">
+        <button class="btn-add-article" onclick="showArticleForm()">＋ 新增文章</button>
+      </div>
+
+      <div class="article-form-wrap" id="article-form-wrap">
+        <h3 id="article-form-title">新增文章</h3>
+        <input type="hidden" id="article-edit-id">
+        <div class="article-form-grid">
+          <div class="form-group">
+            <label class="form-label">日期</label>
+            <input type="date" class="form-input" id="af-date">
+          </div>
+          <div class="form-group">
+            <label class="form-label">分類</label>
+            <select class="form-input" id="af-category">
+              <option value="clinic">診所經營管理</option>
+              <option value="talent">醫療領導人才</option>
+              <option value="startup">醫療科技新創</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">標題</label>
+            <input type="text" class="form-input" id="af-title" placeholder="文章標題">
+          </div>
+          <div class="form-group">
+            <label class="form-label">來源名稱</label>
+            <input type="text" class="form-input" id="af-source" placeholder="例：經濟日報">
+          </div>
+          <div class="form-group">
+            <label class="form-label">閱讀時間（分鐘）</label>
+            <input type="number" class="form-input" id="af-reading-time" value="4" min="1">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">中文摘要（HTML 內容）</label>
+            <textarea class="form-input" id="af-body" placeholder="文章中文摘要，支援 HTML 格式"></textarea>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">WCA Insight</label>
+            <textarea class="form-input" id="af-insight" placeholder="WCA 觀點與分析"></textarea>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">原文連結</label>
+            <input type="url" class="form-input" id="af-url" placeholder="https://...">
+          </div>
+        </div>
+        <div class="article-form-actions">
+          <button class="btn-save-article" id="btn-save-article" onclick="saveArticle()">儲存</button>
+          <button class="btn-cancel-article" onclick="hideArticleForm()">取消</button>
+        </div>
+      </div>
+
+      <div class="article-list" id="article-list"></div>
+    </div>
+
   </div>
 </div>
 
@@ -474,6 +663,7 @@ function doLogout() {
   // Set default date to today
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
   document.getElementById('send-date').value = today;
+  document.getElementById('articles-date').value = today;
 })();
 
 // ===== Fetch Helper =====
@@ -620,13 +810,23 @@ function exportCSV() {
 
 // ===== Tab Switching =====
 function switchTab(tab) {
-  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
-    btn.classList.toggle('active', btn.textContent.includes(
-      tab === 'subscribers' ? '訂閱者' : tab === 'send-log' ? '發送紀錄' : '手動發送'
-    ));
+  const tabLabels = {
+    'subscribers': '訂閱者',
+    'send-log': '發送紀錄',
+    'send-newsletter': '手動發送',
+    'articles': '文章管理'
+  };
+  document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.textContent.includes(tabLabels[tab] || ''));
   });
   document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
   document.getElementById(`panel-${tab}`).classList.add('active');
+  if (tab === 'articles') {
+    if (!document.getElementById('articles-date').value) {
+      document.getElementById('articles-date').value = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+    }
+    loadArticles();
+  }
 }
 
 // ===== Helpers =====
@@ -640,6 +840,141 @@ function formatDate(d) {
   try {
     return new Date(d).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
   } catch { return d; }
+}
+
+// ===== Article Management =====
+const CATEGORY_LABELS = { clinic: '診所經營管理', talent: '醫療領導人才', startup: '醫療科技新創' };
+
+function loadArticles() {
+  const date = document.getElementById('articles-date').value;
+  if (!date) return;
+  const container = document.getElementById('article-list');
+  container.innerHTML = '<div class="empty-state"><span class="spinner"></span> 載入中...</div>';
+
+  fetchWithAuth(`/api/admin/articles?date=${date}`)
+    .then(res => res.json())
+    .then(data => {
+      const articles = data.articles || [];
+      if (!articles.length) {
+        container.innerHTML = '<div class="empty-state">該日期尚無文章</div>';
+        return;
+      }
+      container.innerHTML = articles.map(a => `
+        <div class="article-card">
+          <span class="category-badge ${escHtml(a.category)}">${escHtml(CATEGORY_LABELS[a.category] || a.category)}</span>
+          <div class="article-card-info">
+            <div class="article-card-title">${escHtml(a.title)}</div>
+            <div class="article-card-source">${escHtml(a.source_name || '')}</div>
+          </div>
+          <div class="article-card-actions">
+            <button class="btn-edit-article" onclick='editArticle(${JSON.stringify(a).replace(/'/g,"&#39;")})'>編輯</button>
+            <button class="btn-delete-article" onclick="deleteArticle(${a.id})">刪除</button>
+          </div>
+        </div>
+      `).join('');
+    })
+    .catch(() => {
+      container.innerHTML = '<div class="empty-state">載入失敗</div>';
+    });
+}
+
+function showArticleForm(article) {
+  const wrap = document.getElementById('article-form-wrap');
+  const titleEl = document.getElementById('article-form-title');
+  const editId = document.getElementById('article-edit-id');
+
+  if (article) {
+    titleEl.textContent = '編輯文章';
+    editId.value = article.id;
+    document.getElementById('af-date').value = article.date || '';
+    document.getElementById('af-category').value = article.category || 'clinic';
+    document.getElementById('af-title').value = article.title || '';
+    document.getElementById('af-source').value = article.source_name || '';
+    document.getElementById('af-reading-time').value = article.reading_time || 4;
+    document.getElementById('af-body').value = article.body || '';
+    document.getElementById('af-insight').value = article.wca_insight || '';
+    document.getElementById('af-url').value = article.original_url || '';
+  } else {
+    titleEl.textContent = '新增文章';
+    editId.value = '';
+    document.getElementById('af-date').value = document.getElementById('articles-date').value || '';
+    document.getElementById('af-category').value = 'clinic';
+    document.getElementById('af-title').value = '';
+    document.getElementById('af-source').value = '';
+    document.getElementById('af-reading-time').value = 4;
+    document.getElementById('af-body').value = '';
+    document.getElementById('af-insight').value = '';
+    document.getElementById('af-url').value = '';
+  }
+  wrap.classList.add('visible');
+  wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function hideArticleForm() {
+  document.getElementById('article-form-wrap').classList.remove('visible');
+}
+
+function editArticle(article) {
+  showArticleForm(article);
+}
+
+function saveArticle() {
+  const editId = document.getElementById('article-edit-id').value;
+  const payload = {
+    date: document.getElementById('af-date').value,
+    category: document.getElementById('af-category').value,
+    title: document.getElementById('af-title').value.trim(),
+    source_name: document.getElementById('af-source').value.trim(),
+    reading_time: parseInt(document.getElementById('af-reading-time').value, 10) || 4,
+    body: document.getElementById('af-body').value,
+    wca_insight: document.getElementById('af-insight').value,
+    original_url: document.getElementById('af-url').value.trim(),
+  };
+
+  if (!payload.date || !payload.title) {
+    alert('請至少填寫日期和標題。');
+    return;
+  }
+
+  const btn = document.getElementById('btn-save-article');
+  btn.disabled = true;
+  btn.textContent = '儲存中...';
+
+  const isEdit = !!editId;
+  const url = isEdit ? `/api/admin/articles/${editId}` : '/api/admin/articles';
+  const method = isEdit ? 'PUT' : 'POST';
+
+  fetchWithAuth(url, { method, body: JSON.stringify(payload) })
+    .then(res => {
+      if (!res.ok) throw new Error('Save failed');
+      return res.json();
+    })
+    .then(() => {
+      hideArticleForm();
+      // Sync filter date to saved article date so user sees it
+      document.getElementById('articles-date').value = payload.date;
+      loadArticles();
+    })
+    .catch(err => {
+      alert('儲存失敗：' + err.message);
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = '儲存';
+    });
+}
+
+function deleteArticle(id) {
+  if (!confirm('確定要刪除這篇文章嗎？此操作無法復原。')) return;
+
+  fetchWithAuth(`/api/admin/articles/${id}`, { method: 'DELETE' })
+    .then(res => {
+      if (!res.ok) throw new Error('Delete failed');
+      loadArticles();
+    })
+    .catch(err => {
+      alert('刪除失敗：' + err.message);
+    });
 }
 </script>
 </body>
