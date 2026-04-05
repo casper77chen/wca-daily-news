@@ -1663,7 +1663,7 @@ function monthPage(ym, dir) {
 async function fetchArticles(date) {
   const url = date
     ? API_BASE + '/api/articles?date=' + encodeURIComponent(date)
-    : API_BASE + '/api/articles';
+    : API_BASE + '/api/articles/latest';
   const res = await fetch(url);
   if (!res.ok) throw new Error('Failed to fetch articles (HTTP ' + res.status + ')');
   return res.json();
