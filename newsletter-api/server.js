@@ -223,14 +223,28 @@ ${articlesHtml}
 </html>`;
 }
 
-// ===== Helper: Send newsletter to all subscribers =====
-async function sendDailyNewsletter(date) {
+// ===== Helper: Send newsletter to subscribers =====
+// If `emails` is provided, only send to those emails; otherwise send to all active subscribers
+async function sendDailyNewsletter(date, emails) {
   const today = date || new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
-  const subscribers = db.prepare('SELECT email, name FROM subscribers WHERE active = 1 AND confirmed = 1').all();
+
+  let subscribers;
+  if (emails && emails.length > 0) {
+    // Send to specific emails only
+    const placeholders = emails.map(() => '?').join(',');
+    subscribers = db.prepare(`SELECT email, name FROM subscribers WHERE email IN (${placeholders})`).all(...emails);
+    // Also allow sending to emails not in subscriber list (for testing)
+    const existingEmails = new Set(subscribers.map(s => s.email));
+    emails.forEach(e => {
+      if (!existingEmails.has(e)) subscribers.push({ email: e, name: '' });
+    });
+  } else {
+    subscribers = db.prepare('SELECT email, name FROM subscribers WHERE active = 1 AND confirmed = 1').all();
+  }
 
   if (subscribers.length === 0) {
-    console.log(`[${today}] No active subscribers. Skipping.`);
-    return { sent: 0, message: 'No active subscribers' };
+    console.log(`[${today}] No recipients. Skipping.`);
+    return { sent: 0, message: 'No recipients' };
   }
 
   // Fetch today's articles from DB
@@ -416,8 +430,8 @@ app.post('/api/admin/send-newsletter', async (req, res) => {
   }
 
   try {
-    const { date } = req.body;
-    const result = await sendDailyNewsletter(date);
+    const { date, emails } = req.body;
+    const result = await sendDailyNewsletter(date, emails);
     res.json({ message: 'Newsletter sent', ...result });
   } catch (err) {
     console.error('Manual send error:', err);

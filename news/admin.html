@@ -539,13 +539,27 @@ tr:hover td { background: #FAFAF7; }
       <div class="send-panel">
         <h3>手動發送電子報</h3>
         <p style="font-size:14px; color:var(--graphite); margin-bottom:24px;">
-          選擇日期後，系統將把該日的新聞精選寄送給所有活躍訂閱者。
+          選擇日期與收件人，系統將把該日的新聞精選寄送給勾選的訂閱者。
         </p>
         <div class="form-group">
           <label class="form-label">新聞日期</label>
           <input type="date" class="form-input" id="send-date">
         </div>
-        <button class="send-btn" id="send-btn" onclick="sendNewsletter()">發送電子報</button>
+
+        <!-- Recipient selection -->
+        <div class="form-group" style="margin-top:24px;">
+          <label class="form-label">收件人</label>
+          <div style="margin-bottom:10px;">
+            <label style="font-size:13px;cursor:pointer;display:inline-flex;align-items:center;gap:6px;user-select:none;">
+              <input type="checkbox" id="send-select-all" onchange="toggleSelectAll(this.checked)" style="width:16px;height:16px;accent-color:var(--glory-gold);">
+              <strong>全選</strong>
+            </label>
+            <span style="font-size:12px;color:var(--platinum);margin-left:12px;" id="send-selected-count">已選 0 人</span>
+          </div>
+          <div id="send-recipients-list" style="max-height:320px;overflow-y:auto;border:1.5px solid var(--linen-line);border-radius:10px;padding:8px 0;"></div>
+        </div>
+
+        <button class="send-btn" id="send-btn" onclick="sendNewsletter()" style="margin-top:16px;">發送電子報</button>
         <div class="send-result" id="send-result"></div>
       </div>
     </div>
@@ -688,6 +702,7 @@ function renderDashboard(data) {
   document.getElementById('stat-inactive').textContent = stats.inactive || 0;
 
   renderSubscriberTable(allSubscribers);
+  renderRecipientCheckboxes(allSubscribers);
 }
 
 function renderSubscriberTable(list) {
@@ -753,13 +768,56 @@ function loadSendLog() {
     });
 }
 
+// ===== Recipient Checkboxes =====
+function renderRecipientCheckboxes(subscribers) {
+  const container = document.getElementById('send-recipients-list');
+  // Active subscribers, sorted by subscribed_at descending (newest first)
+  const active = subscribers.filter(s => s.active).sort((a, b) => {
+    return (b.subscribed_at || '').localeCompare(a.subscribed_at || '');
+  });
+  if (!active.length) {
+    container.innerHTML = '<div style="padding:16px;text-align:center;color:var(--platinum);font-size:13px;">目前沒有活躍訂閱者</div>';
+    return;
+  }
+  container.innerHTML = active.map(s => `
+    <label style="display:flex;align-items:center;gap:10px;padding:8px 16px;cursor:pointer;font-size:13px;transition:background .15s;" onmouseover="this.style.background='#FAFAF7'" onmouseout="this.style.background='transparent'">
+      <input type="checkbox" class="send-recipient-cb" value="${escHtml(s.email)}" onchange="updateSelectedCount()" style="width:16px;height:16px;accent-color:var(--glory-gold);flex-shrink:0;">
+      <span style="flex:1;color:var(--ink-black);">${escHtml(s.email)}</span>
+      <span style="color:var(--platinum);font-size:11px;">${formatDate(s.subscribed_at)}</span>
+    </label>
+  `).join('');
+  updateSelectedCount();
+}
+
+function toggleSelectAll(checked) {
+  document.querySelectorAll('.send-recipient-cb').forEach(cb => { cb.checked = checked; });
+  updateSelectedCount();
+}
+
+function updateSelectedCount() {
+  const checked = document.querySelectorAll('.send-recipient-cb:checked').length;
+  const total = document.querySelectorAll('.send-recipient-cb').length;
+  document.getElementById('send-selected-count').textContent = `已選 ${checked} / ${total} 人`;
+  document.getElementById('send-select-all').checked = (checked === total && total > 0);
+}
+
+function getSelectedEmails() {
+  return Array.from(document.querySelectorAll('.send-recipient-cb:checked')).map(cb => cb.value);
+}
+
 // ===== Send Newsletter =====
 function sendNewsletter() {
   const btn = document.getElementById('send-btn');
   const result = document.getElementById('send-result');
   const date = document.getElementById('send-date').value;
+  const emails = getSelectedEmails();
 
-  if (!confirm(`確定要發送 ${date} 的電子報給所有活躍訂閱者嗎？`)) return;
+  if (emails.length === 0) {
+    alert('請至少勾選一位收件人');
+    return;
+  }
+
+  if (!confirm(`確定要發送 ${date} 的電子報給 ${emails.length} 位收件人嗎？`)) return;
 
   btn.disabled = true;
   btn.textContent = '發送中...';
@@ -768,7 +826,7 @@ function sendNewsletter() {
 
   fetchWithAuth('/api/admin/send-newsletter', {
     method: 'POST',
-    body: JSON.stringify({ date }),
+    body: JSON.stringify({ date, emails }),
   })
     .then(res => res.json())
     .then(data => {
