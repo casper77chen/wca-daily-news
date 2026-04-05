@@ -484,7 +484,8 @@ function getWeekday(dateStr) {
 // Get latest date's articles
 app.get('/api/articles/latest', (req, res) => {
   try {
-    const latest = db.prepare('SELECT DISTINCT date FROM articles ORDER BY date DESC LIMIT 1').get();
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+    const latest = db.prepare('SELECT DISTINCT date FROM articles WHERE date <= ? ORDER BY date DESC LIMIT 1').get(today);
 
     if (!latest) {
       return res.json({ date: null, weekday: null, articles: [] });
@@ -504,9 +505,10 @@ app.get('/api/articles/latest', (req, res) => {
 // Get all available dates with article summaries
 app.get('/api/articles/dates', (req, res) => {
   try {
+    const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
     const rows = db.prepare(
-      'SELECT date, category, title FROM articles ORDER BY date DESC, id ASC'
-    ).all();
+      'SELECT date, category, title FROM articles WHERE date <= ? ORDER BY date DESC, id ASC'
+    ).all(today);
 
     const dateMap = new Map();
     for (const row of rows) {
