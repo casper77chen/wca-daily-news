@@ -339,6 +339,9 @@ tr:hover td { background: #FAFAF7; }
 .btn-edit-article:hover { opacity: 0.75; }
 .btn-delete-article { background: #FDECEA; color: var(--danger-red); }
 .btn-delete-article:hover { opacity: 0.75; }
+.btn-publish-article { background: #E8F5E9; color: var(--medical-green); }
+.btn-publish-article:hover { opacity: 0.75; }
+.btn-publish-article.published { background: var(--medical-green); color: #fff; }
 
 .category-badge {
   display: inline-block;
@@ -927,6 +930,7 @@ function loadArticles() {
             <div class="article-card-source">${escHtml(a.source_name || '')}</div>
           </div>
           <div class="article-card-actions">
+            <button class="btn-publish-article${a.published ? ' published' : ''}" onclick="togglePublish(${a.id})">${a.published ? '✓ 已上稿' : '上稿'}</button>
             <button class="btn-edit-article" onclick='editArticle(${JSON.stringify(a).replace(/'/g,"&#39;")})'>編輯</button>
             <button class="btn-delete-article" onclick="deleteArticle(${a.id})">刪除</button>
           </div>
@@ -1022,6 +1026,16 @@ function saveArticle() {
       btn.disabled = false;
       btn.textContent = '儲存';
     });
+}
+
+function togglePublish(id) {
+  fetchWithAuth(`/api/admin/articles/${id}/publish`, { method: 'PUT' })
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) { alert('操作失敗：' + data.error); return; }
+      loadArticles();
+    })
+    .catch(err => alert('操作錯誤：' + err.message));
 }
 
 function deleteArticle(id) {

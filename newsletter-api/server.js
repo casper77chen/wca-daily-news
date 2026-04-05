@@ -76,11 +76,15 @@ db.exec(`
     body TEXT NOT NULL,
     wca_insight TEXT NOT NULL,
     original_url TEXT NOT NULL,
+    published INTEGER DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
   );
   CREATE INDEX IF NOT EXISTS idx_articles_date ON articles(date);
 `);
+
+// Migrate: add published column if not exists (for existing DBs)
+try { db.exec('ALTER TABLE articles ADD COLUMN published INTEGER DEFAULT 0'); } catch {}
 
 // ===== Helper: Send email via Zeabur Mail =====
 async function sendViaZeaburMail({ to, subject, html, from, fromName }) {
@@ -654,6 +658,27 @@ app.delete('/api/admin/articles/:id', (req, res) => {
     res.json({ message: '文章已刪除' });
   } catch (err) {
     console.error('Admin delete article error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Toggle article publish status
+app.put('/api/admin/articles/:id/publish', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${CONFIG.ADMIN_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const { id } = req.params;
+    const article = db.prepare('SELECT id, published FROM articles WHERE id = ?').get(id);
+    if (!article) return res.status(404).json({ error: '找不到該文章' });
+
+    const newStatus = article.published ? 0 : 1;
+    db.prepare('UPDATE articles SET published = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?').run(newStatus, id);
+    res.json({ message: newStatus ? '文章已上稿' : '文章已取消上稿', published: newStatus });
+  } catch (err) {
+    console.error('Admin publish article error:', err);
     res.status(500).json({ error: err.message });
   }
 });
