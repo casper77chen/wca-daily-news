@@ -1276,10 +1276,11 @@ a.tl-article:hover {
     <img class="newsletter-logo" src="WCA_logo.png" alt="WCA Logo">
     <h2 class="newsletter-title">每日早上 8:00，新聞直送信箱</h2>
     <p class="newsletter-subtitle">訂閱 WCA 每日醫療精選，五分鐘掌握全球醫療產業脈動</p>
-    <form class="newsletter-form" onsubmit="event.preventDefault(); alert('感謝訂閱！');">
-      <input type="email" class="newsletter-input" placeholder="your@email.com" required>
-      <button type="submit" class="newsletter-btn">立即訂閱</button>
+    <form class="newsletter-form" id="subscribe-form" onsubmit="handleSubscribe(event)">
+      <input type="email" class="newsletter-input" id="subscribe-email" placeholder="your@email.com" required>
+      <button type="submit" class="newsletter-btn" id="subscribe-btn">立即訂閱</button>
     </form>
+    <div id="subscribe-msg" style="margin-top:12px;font-size:14px;display:none;"></div>
   </div>
 </section>
 
@@ -1689,6 +1690,40 @@ function showArticleError(msg) {
 function showHistoryError() {
   const container = document.getElementById('history-container');
   container.innerHTML = '<div style="text-align:center;padding:40px 0;color:var(--platinum);font-family:var(--font-sans-tc);">無法載入歷史日報</div>';
+}
+
+/* ===== Subscribe Handler ===== */
+async function handleSubscribe(e) {
+  e.preventDefault();
+  const emailInput = document.getElementById('subscribe-email');
+  const btn = document.getElementById('subscribe-btn');
+  const msg = document.getElementById('subscribe-msg');
+  const email = emailInput.value.trim();
+  if (!email) return;
+
+  btn.disabled = true;
+  btn.textContent = '訂閱中...';
+  msg.style.display = 'none';
+
+  try {
+    const res = await fetch(API_BASE + '/api/subscribe', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email })
+    });
+    const data = await res.json();
+    msg.style.display = 'block';
+    msg.style.color = '#2D7D46';
+    msg.textContent = data.message || '訂閱成功！';
+    emailInput.value = '';
+  } catch (err) {
+    msg.style.display = 'block';
+    msg.style.color = '#C0392B';
+    msg.textContent = '訂閱失敗，請稍後再試。';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '立即訂閱';
+  }
 }
 
 /* ===== Page Initialization ===== */
