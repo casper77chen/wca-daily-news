@@ -1,0 +1,646 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WCA 管理後台 — 電子報管理</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&family=Montserrat:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+:root {
+  --warm-ivory: #FAFAF7;
+  --midnight-blue: #09182B;
+  --glory-gold: #C8A359;
+  --glory-gold-dark: #9E7D3D;
+  --ink-black: #1A1A1A;
+  --graphite: #5A5A5A;
+  --platinum: #8C8C8C;
+  --linen-line: #E5E2DB;
+  --medical-green: #2D7D46;
+  --danger-red: #C0392B;
+  --font-sans: 'Noto Sans TC', 'Montserrat', sans-serif;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--warm-ivory);
+  color: var(--ink-black);
+  min-height: 100vh;
+}
+
+/* ===== Login Screen ===== */
+.login-screen {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  padding: 20px;
+}
+.login-card {
+  background: #fff;
+  border-radius: 16px;
+  padding: 48px 40px;
+  max-width: 400px;
+  width: 100%;
+  box-shadow: 0 4px 24px rgba(0,0,0,0.08);
+  text-align: center;
+}
+.login-logo { font-size: 28px; font-weight: 700; color: var(--glory-gold); letter-spacing: 4px; }
+.login-sub { font-size: 12px; color: var(--platinum); margin: 4px 0 32px; }
+.login-input {
+  width: 100%;
+  padding: 14px 16px;
+  border: 1.5px solid var(--linen-line);
+  border-radius: 10px;
+  font-size: 15px;
+  font-family: var(--font-sans);
+  outline: none;
+  transition: border-color .2s;
+}
+.login-input:focus { border-color: var(--glory-gold); }
+.login-btn {
+  width: 100%;
+  margin-top: 16px;
+  padding: 14px;
+  background: var(--midnight-blue);
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .2s;
+}
+.login-btn:hover { opacity: 0.85; }
+.login-error { color: var(--danger-red); font-size: 13px; margin-top: 12px; display: none; }
+
+/* ===== Dashboard ===== */
+.dashboard { display: none; }
+
+.topbar {
+  background: var(--midnight-blue);
+  padding: 16px 32px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.topbar-brand { display: flex; align-items: center; gap: 12px; }
+.topbar-logo { font-size: 20px; font-weight: 700; color: var(--glory-gold); letter-spacing: 3px; }
+.topbar-label { font-size: 13px; color: rgba(255,255,255,0.5); }
+.topbar-actions { display: flex; gap: 12px; align-items: center; }
+.topbar-back {
+  color: rgba(255,255,255,0.6);
+  text-decoration: none;
+  font-size: 13px;
+  transition: color .2s;
+}
+.topbar-back:hover { color: #fff; }
+.topbar-logout {
+  background: rgba(255,255,255,0.1);
+  color: #fff;
+  border: none;
+  padding: 8px 16px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: background .2s;
+}
+.topbar-logout:hover { background: rgba(255,255,255,0.2); }
+
+.container { max-width: 1000px; margin: 0 auto; padding: 32px 24px; }
+
+/* ===== Stats Cards ===== */
+.stats-row {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  margin-bottom: 32px;
+}
+.stat-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.stat-label { font-size: 13px; color: var(--platinum); margin-bottom: 6px; }
+.stat-value { font-size: 32px; font-weight: 700; color: var(--midnight-blue); }
+.stat-value.gold { color: var(--glory-gold); }
+.stat-value.green { color: var(--medical-green); }
+.stat-value.red { color: var(--danger-red); }
+
+/* ===== Tabs ===== */
+.tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 24px;
+  border-bottom: 2px solid var(--linen-line);
+}
+.tab-btn {
+  padding: 12px 24px;
+  background: none;
+  border: none;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--platinum);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: all .2s;
+  font-family: var(--font-sans);
+}
+.tab-btn:hover { color: var(--graphite); }
+.tab-btn.active {
+  color: var(--midnight-blue);
+  border-bottom-color: var(--glory-gold);
+  font-weight: 600;
+}
+
+.tab-panel { display: none; }
+.tab-panel.active { display: block; }
+
+/* ===== Table ===== */
+.table-wrap {
+  background: #fff;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.table-toolbar {
+  padding: 16px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  border-bottom: 1px solid var(--linen-line);
+}
+.table-search {
+  padding: 8px 14px;
+  border: 1.5px solid var(--linen-line);
+  border-radius: 8px;
+  font-size: 13px;
+  width: 260px;
+  outline: none;
+  font-family: var(--font-sans);
+}
+.table-search:focus { border-color: var(--glory-gold); }
+.export-btn {
+  padding: 8px 18px;
+  background: var(--midnight-blue);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: var(--font-sans);
+  transition: opacity .2s;
+}
+.export-btn:hover { opacity: 0.85; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+thead { background: #F8F7F4; }
+th {
+  text-align: left;
+  padding: 12px 20px;
+  font-weight: 600;
+  color: var(--graphite);
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+td {
+  padding: 14px 20px;
+  border-top: 1px solid #F2F0EB;
+  color: var(--ink-black);
+}
+tr:hover td { background: #FAFAF7; }
+
+.badge {
+  display: inline-block;
+  padding: 3px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 500;
+}
+.badge-active { background: #E8F5E9; color: var(--medical-green); }
+.badge-inactive { background: #FDECEA; color: var(--danger-red); }
+
+/* ===== Send Log ===== */
+.log-card {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px 24px;
+  margin-bottom: 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  display: flex;
+  align-items: center;
+  gap: 20px;
+}
+.log-date { font-size: 13px; color: var(--platinum); min-width: 160px; }
+.log-subject { font-weight: 500; flex: 1; }
+.log-count { font-size: 13px; color: var(--graphite); }
+.log-status { font-size: 12px; font-weight: 500; }
+.log-status.success { color: var(--medical-green); }
+.log-status.partial { color: var(--glory-gold-dark); }
+.log-status.error { color: var(--danger-red); }
+
+/* ===== Send Newsletter Panel ===== */
+.send-panel {
+  background: #fff;
+  border-radius: 12px;
+  padding: 32px;
+  box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+}
+.send-panel h3 { font-size: 18px; margin-bottom: 20px; color: var(--midnight-blue); }
+.form-group { margin-bottom: 20px; }
+.form-label { display: block; font-size: 13px; color: var(--graphite); margin-bottom: 6px; font-weight: 500; }
+.form-input {
+  padding: 12px 14px;
+  border: 1.5px solid var(--linen-line);
+  border-radius: 10px;
+  font-size: 14px;
+  width: 280px;
+  outline: none;
+  font-family: var(--font-sans);
+}
+.form-input:focus { border-color: var(--glory-gold); }
+.send-btn {
+  padding: 14px 32px;
+  background: linear-gradient(135deg, var(--glory-gold), var(--glory-gold-dark));
+  color: #fff;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity .2s;
+  font-family: var(--font-sans);
+}
+.send-btn:hover { opacity: 0.85; }
+.send-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.send-result { margin-top: 16px; font-size: 14px; padding: 12px 16px; border-radius: 8px; display: none; }
+.send-result.ok { background: #E8F5E9; color: var(--medical-green); display: block; }
+.send-result.err { background: #FDECEA; color: var(--danger-red); display: block; }
+
+/* ===== Loading ===== */
+.spinner {
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--linen-line);
+  border-top-color: var(--glory-gold);
+  border-radius: 50%;
+  animation: spin .6s linear infinite;
+  vertical-align: middle;
+  margin-right: 8px;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.empty-state {
+  text-align: center;
+  padding: 48px 20px;
+  color: var(--platinum);
+  font-size: 14px;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: 640px) {
+  .topbar { padding: 14px 16px; }
+  .container { padding: 20px 16px; }
+  .stats-row { grid-template-columns: 1fr 1fr; }
+  .table-search { width: 100%; }
+  .table-toolbar { flex-direction: column; align-items: stretch; }
+  .log-card { flex-direction: column; align-items: flex-start; gap: 8px; }
+  th, td { padding: 10px 12px; font-size: 13px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div class="login-screen" id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">WCA</div>
+    <div class="login-sub">白袍加速器 — 管理後台</div>
+    <input type="password" class="login-input" id="admin-secret" placeholder="輸入管理密鑰（Admin Secret）" onkeydown="if(event.key==='Enter')doLogin()">
+    <button class="login-btn" onclick="doLogin()">登入</button>
+    <div class="login-error" id="login-error">密鑰錯誤，請再試一次。</div>
+  </div>
+</div>
+
+<!-- ===== DASHBOARD ===== -->
+<div class="dashboard" id="dashboard">
+  <div class="topbar">
+    <div class="topbar-brand">
+      <div class="topbar-logo">WCA</div>
+      <div class="topbar-label">電子報管理後台</div>
+    </div>
+    <div class="topbar-actions">
+      <a href="index.html" class="topbar-back">← 回到首頁</a>
+      <button class="topbar-logout" onclick="doLogout()">登出</button>
+    </div>
+  </div>
+
+  <div class="container">
+    <!-- Stats -->
+    <div class="stats-row" id="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">總訂閱人數</div>
+        <div class="stat-value" id="stat-total">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">活躍訂閱</div>
+        <div class="stat-value green" id="stat-active">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">已取消訂閱</div>
+        <div class="stat-value red" id="stat-inactive">—</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">最近一次發送</div>
+        <div class="stat-value gold" id="stat-last-send" style="font-size:16px;">—</div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('subscribers')">訂閱者列表</button>
+      <button class="tab-btn" onclick="switchTab('send-log')">發送紀錄</button>
+      <button class="tab-btn" onclick="switchTab('send-newsletter')">手動發送</button>
+    </div>
+
+    <!-- Tab: Subscribers -->
+    <div class="tab-panel active" id="panel-subscribers">
+      <div class="table-wrap">
+        <div class="table-toolbar">
+          <input type="text" class="table-search" id="sub-search" placeholder="搜尋 email 或名稱..." oninput="filterSubscribers()">
+          <button class="export-btn" onclick="exportCSV()">匯出 CSV</button>
+        </div>
+        <div style="overflow-x:auto;">
+          <table>
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Email</th>
+                <th>名稱</th>
+                <th>訂閱日期</th>
+                <th>狀態</th>
+              </tr>
+            </thead>
+            <tbody id="sub-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tab: Send Log -->
+    <div class="tab-panel" id="panel-send-log">
+      <div id="send-log-list"></div>
+    </div>
+
+    <!-- Tab: Send Newsletter -->
+    <div class="tab-panel" id="panel-send-newsletter">
+      <div class="send-panel">
+        <h3>手動發送電子報</h3>
+        <p style="font-size:14px; color:var(--graphite); margin-bottom:24px;">
+          選擇日期後，系統將把該日的新聞精選寄送給所有活躍訂閱者。
+        </p>
+        <div class="form-group">
+          <label class="form-label">新聞日期</label>
+          <input type="date" class="form-input" id="send-date">
+        </div>
+        <button class="send-btn" id="send-btn" onclick="sendNewsletter()">發送電子報</button>
+        <div class="send-result" id="send-result"></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+// ===== Config =====
+const API_BASE = window.WCA_API_URL || 'https://wca-news-api.zeabur.app';
+let adminSecret = '';
+let allSubscribers = [];
+
+// ===== Login / Session =====
+function doLogin() {
+  const input = document.getElementById('admin-secret');
+  const secret = input.value.trim();
+  if (!secret) return;
+
+  adminSecret = secret;
+  // Test by fetching subscribers
+  fetchWithAuth('/api/admin/subscribers')
+    .then(res => {
+      if (!res.ok) throw new Error('Unauthorized');
+      return res.json();
+    })
+    .then(data => {
+      sessionStorage.setItem('wca_admin', secret);
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('dashboard').style.display = 'block';
+      renderDashboard(data);
+      loadSendLog();
+    })
+    .catch(() => {
+      document.getElementById('login-error').style.display = 'block';
+      adminSecret = '';
+    });
+}
+
+function doLogout() {
+  sessionStorage.removeItem('wca_admin');
+  adminSecret = '';
+  document.getElementById('dashboard').style.display = 'none';
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('admin-secret').value = '';
+  document.getElementById('login-error').style.display = 'none';
+}
+
+// Auto-login from session
+(function autoLogin() {
+  const saved = sessionStorage.getItem('wca_admin');
+  if (saved) {
+    adminSecret = saved;
+    document.getElementById('admin-secret').value = saved;
+    doLogin();
+  }
+  // Set default date to today
+  const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  document.getElementById('send-date').value = today;
+})();
+
+// ===== Fetch Helper =====
+function fetchWithAuth(path, opts = {}) {
+  return fetch(`${API_BASE}${path}`, {
+    ...opts,
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${adminSecret}`,
+      ...(opts.headers || {}),
+    },
+  });
+}
+
+// ===== Dashboard Rendering =====
+function renderDashboard(data) {
+  allSubscribers = data.subscribers || [];
+  const stats = data.stats || {};
+
+  document.getElementById('stat-total').textContent = stats.total || 0;
+  document.getElementById('stat-active').textContent = stats.active || 0;
+  document.getElementById('stat-inactive').textContent = stats.inactive || 0;
+
+  renderSubscriberTable(allSubscribers);
+}
+
+function renderSubscriberTable(list) {
+  const tbody = document.getElementById('sub-tbody');
+  if (!list.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="empty-state">目前沒有訂閱者</td></tr>';
+    return;
+  }
+  tbody.innerHTML = list.map((s, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${escHtml(s.email)}</td>
+      <td>${escHtml(s.name || '—')}</td>
+      <td>${formatDate(s.subscribed_at)}</td>
+      <td><span class="badge ${s.active ? 'badge-active' : 'badge-inactive'}">${s.active ? '活躍' : '已取消'}</span></td>
+    </tr>
+  `).join('');
+}
+
+function filterSubscribers() {
+  const q = document.getElementById('sub-search').value.trim().toLowerCase();
+  if (!q) {
+    renderSubscriberTable(allSubscribers);
+    return;
+  }
+  const filtered = allSubscribers.filter(s =>
+    s.email.toLowerCase().includes(q) || (s.name || '').toLowerCase().includes(q)
+  );
+  renderSubscriberTable(filtered);
+}
+
+// ===== Send Log =====
+function loadSendLog() {
+  fetchWithAuth('/api/admin/send-log')
+    .then(res => res.json())
+    .then(data => {
+      const logs = data.log || [];
+      const container = document.getElementById('send-log-list');
+
+      // Update last send stat
+      if (logs.length > 0) {
+        const last = logs[0];
+        document.getElementById('stat-last-send').textContent = formatDate(last.sent_at);
+      }
+
+      if (!logs.length) {
+        container.innerHTML = '<div class="empty-state">尚無發送紀錄</div>';
+        return;
+      }
+      container.innerHTML = logs.map(l => `
+        <div class="log-card">
+          <div class="log-date">${formatDate(l.sent_at)}</div>
+          <div class="log-subject">${escHtml(l.subject || '每日新聞精選')}</div>
+          <div class="log-count">${l.recipient_count || 0} 人</div>
+          <div class="log-status ${l.status === 'success' ? 'success' : l.status === 'partial' ? 'partial' : 'error'}">
+            ${l.status === 'success' ? '全部成功' : l.status === 'partial' ? '部分成功' : '失敗'}
+          </div>
+        </div>
+      `).join('');
+    })
+    .catch(() => {
+      document.getElementById('send-log-list').innerHTML = '<div class="empty-state">載入失敗</div>';
+    });
+}
+
+// ===== Send Newsletter =====
+function sendNewsletter() {
+  const btn = document.getElementById('send-btn');
+  const result = document.getElementById('send-result');
+  const date = document.getElementById('send-date').value;
+
+  if (!confirm(`確定要發送 ${date} 的電子報給所有活躍訂閱者嗎？`)) return;
+
+  btn.disabled = true;
+  btn.textContent = '發送中...';
+  result.className = 'send-result';
+  result.style.display = 'none';
+
+  fetchWithAuth('/api/admin/send-newsletter', {
+    method: 'POST',
+    body: JSON.stringify({ date }),
+  })
+    .then(res => res.json())
+    .then(data => {
+      if (data.error) {
+        result.className = 'send-result err';
+        result.textContent = `發送失敗：${data.error}`;
+      } else {
+        result.className = 'send-result ok';
+        result.textContent = `發送完成！成功 ${data.sent}/${data.total} 封`;
+        loadSendLog(); // Refresh log
+      }
+    })
+    .catch(err => {
+      result.className = 'send-result err';
+      result.textContent = `發送錯誤：${err.message}`;
+    })
+    .finally(() => {
+      btn.disabled = false;
+      btn.textContent = '發送電子報';
+    });
+}
+
+// ===== Export CSV =====
+function exportCSV() {
+  const active = allSubscribers.filter(s => s.active);
+  const header = 'Email,Name,Subscribed At,Status';
+  const rows = allSubscribers.map(s =>
+    `"${s.email}","${(s.name || '').replace(/"/g,'""')}","${s.subscribed_at}","${s.active ? 'active' : 'inactive'}"`
+  );
+  const csv = [header, ...rows].join('\n');
+  const blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `wca_subscribers_${new Date().toLocaleDateString('sv-SE')}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== Tab Switching =====
+function switchTab(tab) {
+  document.querySelectorAll('.tab-btn').forEach((btn, i) => {
+    btn.classList.toggle('active', btn.textContent.includes(
+      tab === 'subscribers' ? '訂閱者' : tab === 'send-log' ? '發送紀錄' : '手動發送'
+    ));
+  });
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById(`panel-${tab}`).classList.add('active');
+}
+
+// ===== Helpers =====
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+function formatDate(d) {
+  if (!d) return '—';
+  try {
+    return new Date(d).toLocaleString('zh-TW', { timeZone: 'Asia/Taipei', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+  } catch { return d; }
+}
+</script>
+</body>
+</html>

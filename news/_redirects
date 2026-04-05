@@ -1,0 +1,3 @@
+# Proxy API requests to the newsletter-api service
+# Note: This will be handled by Zeabur's service binding
+# The API_BASE URL in the frontend should point to the newsletter-api service URL
