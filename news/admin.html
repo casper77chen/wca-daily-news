@@ -922,9 +922,13 @@ function loadArticles() {
         container.innerHTML = '<div class="empty-state">該日期尚無文章</div>';
         return;
       }
-      container.innerHTML = articles.map(a => `
+      const todayStr = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+      container.innerHTML = articles.map(a => {
+        const isLive = a.date <= todayStr;
+        return `
         <div class="article-card">
           <span class="category-badge ${escHtml(a.category)}">${escHtml(CATEGORY_LABELS[a.category] || a.category)}</span>
+          ${isLive ? '<span style="color:var(--danger-red);font-size:12px;font-weight:600;margin-left:8px;">已發佈</span>' : ''}
           <div class="article-card-info">
             <div class="article-card-title">${escHtml(a.title)}</div>
             <div class="article-card-source">${escHtml(a.source_name || '')}</div>
@@ -934,8 +938,8 @@ function loadArticles() {
             <button class="btn-edit-article" onclick='editArticle(${JSON.stringify(a).replace(/'/g,"&#39;")})'>編輯</button>
             <button class="btn-delete-article" onclick="deleteArticle(${a.id})">刪除</button>
           </div>
-        </div>
-      `).join('');
+        </div>`;
+      }).join('');
     })
     .catch(() => {
       container.innerHTML = '<div class="empty-state">載入失敗</div>';
