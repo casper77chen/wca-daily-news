@@ -30,13 +30,18 @@ const FILES = [
 function parseArticles(html, date) {
   const articles = [];
 
-  // Split by <article ...> tags
-  const cardRegex = /<article\s+class="news-card"\s+data-category="(clinic|talent|startup)">([\s\S]*?)<\/article>/g;
+  // Split by <article ...> tags (supports both with and without data-category)
+  const cardRegex = /<article\s+class="news-card"[^>]*>([\s\S]*?)<\/article>/g;
   let match;
 
   while ((match = cardRegex.exec(html)) !== null) {
-    const category = match[1];
-    const cardHtml = match[2];
+    const cardHtml = match[1];
+
+    // Extract category from data-category attribute or from tag--{category} class
+    const dataCatMatch = match[0].match(/data-category="(clinic|talent|startup)"/);
+    const tagCatMatch = cardHtml.match(/tag--(clinic|talent|startup)/);
+    const category = dataCatMatch ? dataCatMatch[1] : (tagCatMatch ? tagCatMatch[1] : null);
+    if (!category) continue;
 
     // Title
     const titleMatch = cardHtml.match(/<h2\s+class="news-title">([\s\S]*?)<\/h2>/);

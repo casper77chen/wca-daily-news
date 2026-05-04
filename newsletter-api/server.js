@@ -3,21 +3,23 @@
  *
  * 功能：
  * 1. 訂閱/取消訂閱 API
- * 2. 每日 08:00 (台灣時間) 自動寄送電子報 via Zeabur Mail
- * 3. 手動觸發寄送 API
+ * 2. 每日 06:00 (台灣時間) 自動盤點並補充 7 天文章庫存 via Anthropic API + Web Search
+ * 3. 每日 08:00 (台灣時間) 自動寄送電子報 via Zeabur Mail
+ * 4. 手動觸發寄送 / 庫存補充 API
  *
  * 環境變數：
  * - ZEABUR_MAIL_API_KEY: Zeabur Email API Key
  * - SENDER_EMAIL: 寄件者 email (需在 Zeabur Email 設定的域名下)
  * - SITE_URL: 網站網址 (用於電子報中的連結)
  * - ADMIN_SECRET: 管理 API 的密鑰
+ * - ANTHROPIC_API_KEY: Anthropic API Key (用於自動產文)
  */
 
 import express from 'express';
 import cors from 'cors';
 import Database from 'better-sqlite3';
 import cron from 'node-cron';
-import { readFileSync, existsSync } from 'fs';
+import { readFileSync, existsSync, mkdirSync } from 'fs';
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 
@@ -33,6 +35,7 @@ const CONFIG = {
   SITE_URL: process.env.SITE_URL || 'https://news.wca.tw',
   ADMIN_SECRET: process.env.ADMIN_SECRET || 'change-me-in-production',
   ZEABUR_MAIL_ENDPOINT: 'https://api.zeabur.com/api/v1/zsend/emails',
+  ANTHROPIC_API_KEY: process.env.ANTHROPIC_API_KEY || '',
 };
 
 // ===== Middleware =====
@@ -45,6 +48,9 @@ app.use(cors({
 app.use(express.json());
 
 // ===== Database =====
+// Ensure data directory exists before opening DB
+try { mkdirSync(join(__dirname, 'data'), { recursive: true }); } catch {}
+
 const db = new Database(join(__dirname, 'data', 'subscribers.db'));
 db.pragma('journal_mode = WAL');
 
@@ -69,7 +75,7 @@ db.exec(`
   CREATE TABLE IF NOT EXISTS articles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     date TEXT NOT NULL,
-    category TEXT NOT NULL CHECK(category IN ('clinic', 'talent', 'startup')),
+    category TEXT NOT NULL CHECK(category IN ('clinic', 'talent', 'startup', 'casper_pick')),
     title TEXT NOT NULL,
     source_name TEXT NOT NULL,
     reading_time TEXT DEFAULT '4',
@@ -85,6 +91,58 @@ db.exec(`
 
 // Migrate: add published column if not exists (for existing DBs)
 try { db.exec('ALTER TABLE articles ADD COLUMN published INTEGER DEFAULT 0'); } catch {}
+
+// Migrate: fix column order after casper_pick migration (published/created_at/updated_at were swapped)
+try {
+  const badRow = db.prepare("SELECT published FROM articles WHERE typeof(published) = 'text' AND published LIKE '%-%' LIMIT 1").get();
+  if (badRow) {
+    console.log('[MIGRATE] Fixing swapped columns from previous migration...');
+    db.exec(`
+      CREATE TABLE articles_fixed (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        date TEXT NOT NULL,
+        category TEXT NOT NULL CHECK(category IN ('clinic', 'talent', 'startup', 'casper_pick')),
+        title TEXT NOT NULL,
+        source_name TEXT NOT NULL,
+        reading_time TEXT DEFAULT '4',
+        body TEXT NOT NULL,
+        wca_insight TEXT NOT NULL,
+        original_url TEXT NOT NULL,
+        published INTEGER DEFAULT 0,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+      );
+      INSERT INTO articles_fixed (id, date, category, title, source_name, reading_time, body, wca_insight, original_url, published, created_at, updated_at)
+        SELECT id, date, category, title, source_name, reading_time, body, wca_insight, original_url,
+          CASE
+            WHEN typeof(published) = 'text' AND published LIKE '%-%' THEN 0
+            ELSE COALESCE(published, 0)
+          END,
+          CASE
+            WHEN typeof(published) = 'text' AND published LIKE '%-%' THEN published
+            ELSE created_at
+          END,
+          CASE
+            WHEN typeof(updated_at) = 'text' AND updated_at LIKE '%-%' THEN updated_at
+            WHEN typeof(created_at) = 'text' AND created_at LIKE '%-%' THEN created_at
+            ELSE CURRENT_TIMESTAMP
+          END
+        FROM articles;
+      DROP TABLE articles;
+      ALTER TABLE articles_fixed RENAME TO articles;
+      CREATE INDEX IF NOT EXISTS idx_articles_date ON articles(date);
+    `);
+    console.log('[MIGRATE] Column order fixed successfully');
+  }
+  // Cleanup: fix any rows with non-datetime created_at or updated_at
+  db.exec(`
+    UPDATE articles SET created_at = updated_at WHERE length(CAST(created_at AS TEXT)) < 10;
+    UPDATE articles SET updated_at = created_at WHERE length(CAST(updated_at AS TEXT)) < 10;
+  `);
+} catch (e) { console.error('Migration fix failed:', e.message); }
+
+// Category sort order for SQL queries
+const CAT_ORDER = `CASE category WHEN 'clinic' THEN 1 WHEN 'talent' THEN 2 WHEN 'startup' THEN 3 WHEN 'casper_pick' THEN 4 ELSE 5 END`;
 
 // ===== Helper: Send email via Zeabur Mail =====
 async function sendViaZeaburMail({ to, subject, html, from, fromName }) {
@@ -117,11 +175,12 @@ function buildNewsletterHTML(date, articles) {
   const siteUrl = CONFIG.SITE_URL;
   const readMoreUrl = `${siteUrl}/news/?date=${today}`;
 
-  const categoryLabels = { clinic: '診所經營管理', talent: '醫療領導人才', startup: '醫療科技新創' };
+  const categoryLabels = { clinic: '診所經營管理', talent: '醫療領導人才', startup: '醫療科技新創', casper_pick: 'Casper 特別推薦' };
   const categorySvgs = {
     clinic: '<svg viewBox="3 2 18 24" width="14" height="16" style="vertical-align:-3px;margin-right:5px;" fill="none" stroke="#09182B" stroke-width="1.5"><path d="M12 3L4 7.5v5.5c0 5 3.4 9.7 8 11 4.6-1.3 8-6 8-11V7.5l-8-4.5z"/></svg>',
     talent: '<svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:5px;" fill="none" stroke="#09182B" stroke-width="1.8"><circle cx="12" cy="8" r="4.5"/><path d="M4 21v-2a7 7 0 0114 0v2"/></svg>',
     startup: '<svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:5px;" fill="none" stroke="#09182B" stroke-width="1.8"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>',
+    casper_pick: '<svg viewBox="0 0 24 24" width="14" height="14" style="vertical-align:-2px;margin-right:5px;" fill="none" stroke="#09182B" stroke-width="1.8"><path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/></svg>',
   };
   const articleNumbers = ['Article I', 'Article II', 'Article III'];
 
@@ -130,10 +189,12 @@ function buildNewsletterHTML(date, articles) {
     const label = categoryLabels[a.category] || a.category;
     const icon = categorySvgs[a.category] || '';
 
-    // Strip HTML tags from body for email-safe plain text summary
-    const plainBody = a.body.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim();
-    // Take first 200 chars as preview
-    const preview = plainBody.length > 200 ? plainBody.slice(0, 200) + '…' : plainBody;
+    // Extract first paragraph only for newsletter preview
+    const firstPMatch = a.body.match(/<p[^>]*>([\s\S]*?)<\/p>/i);
+    const firstParagraph = firstPMatch
+      ? firstPMatch[1].replace(/<[^>]+>/g, '').trim()
+      : a.body.replace(/<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, '').trim().split('\n')[0];
+    const preview = firstParagraph + '......<a href="' + readMoreUrl + '" style="color: #C8A359; text-decoration: underline;">去官網看完整摘要</a>';
 
     return `
       <!-- Article ${i + 1} -->
@@ -252,7 +313,7 @@ async function sendDailyNewsletter(date, emails) {
   }
 
   // Fetch today's articles from DB
-  const articles = db.prepare('SELECT * FROM articles WHERE date = ? ORDER BY id ASC').all(today);
+  const articles = db.prepare(`SELECT * FROM articles WHERE date = ? ORDER BY ${CAT_ORDER}`).all(today);
   if (articles.length === 0) {
     console.log(`[${today}] No articles found for today. Skipping.`);
     return { sent: 0, message: 'No articles for today' };
@@ -492,7 +553,7 @@ app.get('/api/articles/latest', (req, res) => {
     }
 
     const articles = db.prepare(
-      'SELECT id, category, title, source_name, reading_time, body, wca_insight, original_url FROM articles WHERE date = ? ORDER BY id ASC'
+      `SELECT id, category, title, source_name, reading_time, body, wca_insight, original_url FROM articles WHERE date = ? ORDER BY ${CAT_ORDER}`
     ).all(latest.date);
 
     res.json({ date: latest.date, weekday: getWeekday(latest.date), articles });
@@ -507,7 +568,7 @@ app.get('/api/articles/dates', (req, res) => {
   try {
     const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
     const rows = db.prepare(
-      'SELECT date, category, title FROM articles WHERE date <= ? ORDER BY date DESC, id ASC'
+      `SELECT date, category, title FROM articles WHERE date <= ? ORDER BY date DESC, ${CAT_ORDER}`
     ).all(today);
 
     const dateMap = new Map();
@@ -540,7 +601,7 @@ app.get('/api/articles', (req, res) => {
 
   try {
     const articles = db.prepare(
-      'SELECT id, category, title, source_name, reading_time, body, wca_insight, original_url FROM articles WHERE date = ? ORDER BY id ASC'
+      `SELECT id, category, title, source_name, reading_time, body, wca_insight, original_url FROM articles WHERE date = ? ORDER BY ${CAT_ORDER}`
     ).all(date);
 
     res.json({ date, weekday: getWeekday(date), articles });
@@ -563,9 +624,9 @@ app.get('/api/admin/articles', (req, res) => {
     const { date } = req.query;
     let articles;
     if (date) {
-      articles = db.prepare('SELECT * FROM articles WHERE date = ? ORDER BY id ASC').all(date);
+      articles = db.prepare(`SELECT * FROM articles WHERE date = ? ORDER BY ${CAT_ORDER}`).all(date);
     } else {
-      articles = db.prepare('SELECT * FROM articles ORDER BY date DESC, id ASC').all();
+      articles = db.prepare(`SELECT * FROM articles ORDER BY date DESC, ${CAT_ORDER}`).all();
     }
     res.json({ articles });
   } catch (err) {
@@ -685,6 +746,412 @@ app.put('/api/admin/articles/:id/publish', (req, res) => {
   }
 });
 
+// ===== Admin: Generate article from URL via AI =====
+app.post('/api/admin/generate-article', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${CONFIG.ADMIN_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const { url, category } = req.body;
+  if (!url) return res.status(400).json({ error: '請提供 URL' });
+  if (!CONFIG.ANTHROPIC_API_KEY) return res.status(500).json({ error: '尚未設定 ANTHROPIC_API_KEY' });
+
+  try {
+    // 1. Fetch URL content
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 15000);
+    const pageRes = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0 (compatible; WCA-Bot/1.0)' },
+      signal: controller.signal,
+    });
+    clearTimeout(timeout);
+    const html = await pageRes.text();
+
+    // Simple text extraction
+    const text = html
+      .replace(/<script[\s\S]*?<\/script>/gi, '')
+      .replace(/<style[\s\S]*?<\/style>/gi, '')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&[a-z]+;/gi, ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, 12000);
+
+    // 2. Call Anthropic API
+    const categoryLabel = { clinic: '診所經營管理', talent: '醫療領導人才', startup: '醫療科技新創', casper_pick: 'Casper 特別推薦' }[category] || category;
+
+    const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': CONFIG.ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        messages: [{
+          role: 'user',
+          content: `你是 WCA 白袍加速器的醫療新聞編輯。請根據以下英文原文，產生結構化的繁體中文新聞摘要。
+
+分類：${categoryLabel}
+原文 URL：${url}
+原文內容：
+${text}
+
+請以 JSON 格式回覆，包含以下欄位：
+- title: 繁體中文標題，吸引醫療經營者，具體且有數據感（例：「Cedar 研究揭示：診所 77% 的應收款正滑向難以回收的深淵」），不超過 40 字
+- source_name: 原始來源媒體名稱（英文）
+- reading_time: 預估閱讀分鐘數（字串，通常 "4" 或 "5"）
+- body: 繁體中文摘要，800-1200 字，HTML 格式（使用 <p> 和 <br> 標籤）。須包含：事件背景與核心發現、3-4 個關鍵數據點（用 <strong> 加粗）、對產業的影響分析
+- wca_insight: WCA 獨家洞察，200-400 字，純文字（不要 HTML）。角度必須是「這對台灣的診所經營者/醫師創業者意味著什麼」，給出具體可行的建議。語氣專業但有溫度，像一個資深顧問在跟學員分享觀點。
+
+只回覆 JSON，不要加任何前綴、說明或 markdown 包裹。`
+        }]
+      }),
+    });
+
+    const claudeData = await claudeRes.json();
+    if (!claudeRes.ok) throw new Error(claudeData.error?.message || 'Anthropic API error');
+
+    const content = claudeData.content[0].text;
+    // Parse JSON - handle potential markdown code blocks
+    const jsonStr = content.replace(/^```json?\s*/i, '').replace(/\s*```\s*$/,'').trim();
+    const generated = JSON.parse(jsonStr);
+
+    res.json({ generated });
+  } catch (err) {
+    console.error('Generate article error:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// ===== Auto Article Inventory =====
+
+function getTaipeiDate(offsetDays = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + offsetDays);
+  return d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+}
+
+function getArticleInventory() {
+  const categories = ['clinic', 'talent', 'startup'];
+  const missing = [];
+  for (let i = 0; i < 7; i++) {
+    const date = getTaipeiDate(i);
+    const existing = db.prepare('SELECT category FROM articles WHERE date = ?').all(date).map(r => r.category);
+    for (const cat of categories) {
+      if (!existing.includes(cat)) {
+        missing.push({ date, category: cat });
+      }
+    }
+  }
+  return missing;
+}
+
+const CATEGORY_SEARCH = {
+  clinic: {
+    label: '診所經營管理',
+    queries: [
+      'clinic management healthcare practice operations 2026',
+      'healthcare revenue cycle patient experience ambulatory care 2026',
+    ],
+  },
+  talent: {
+    label: '醫療領導人才',
+    queries: [
+      'healthcare leadership physician executive workforce 2026',
+      'hospital CEO medical director healthcare talent 2026',
+    ],
+  },
+  startup: {
+    label: '醫療科技新創',
+    queries: [
+      'health tech startup digital health funding 2026',
+      'healthcare AI startup medtech innovation funding 2026',
+    ],
+  },
+};
+
+// Helper: extract key terms (company names, dollar amounts) from a title for dedup matching
+function extractKeyTerms(title) {
+  const terms = new Set();
+  // Extract English company/brand names (2+ chars)
+  const engMatches = title.match(/[A-Z][A-Za-z0-9.]+(?:\s[A-Z][A-Za-z0-9.]+)*/g);
+  if (engMatches) engMatches.forEach(m => terms.add(m.toLowerCase()));
+  // Extract dollar amounts like "$4B", "40億", "1.25億", "1,600萬"
+  const moneyMatches = title.match(/[\d,.]+\s*[億萬]/g);
+  if (moneyMatches) moneyMatches.forEach(m => terms.add(m.replace(/\s/g, '')));
+  return [...terms];
+}
+
+// Helper: check if a generated article duplicates existing articles
+function isDuplicateArticle(newArticle, existingArticles) {
+  const newUrl = (newArticle.original_url || '').toLowerCase();
+  const newTitle = (newArticle.title || '').toLowerCase();
+  const newTerms = extractKeyTerms(newArticle.title || '');
+
+  for (const existing of existingArticles) {
+    const exUrl = (existing.original_url || '').toLowerCase();
+    const exTitle = (existing.title || '').toLowerCase();
+    const exTerms = extractKeyTerms(existing.title || '');
+
+    // 1. Exact URL match (ignore trailing slashes / query params)
+    const normalizeUrl = u => u.replace(/\/+$/, '').split('?')[0];
+    if (newUrl && exUrl && normalizeUrl(newUrl) === normalizeUrl(exUrl)) {
+      console.log(`[DEDUP] URL match: ${newUrl}`);
+      return true;
+    }
+
+    // 2. Same URL domain+path prefix (same article, different tracking params)
+    try {
+      const newParsed = new URL(newUrl);
+      const exParsed = new URL(exUrl);
+      if (newParsed.hostname === exParsed.hostname && newParsed.pathname === exParsed.pathname) {
+        console.log(`[DEDUP] Same domain+path: ${newParsed.hostname}${newParsed.pathname}`);
+        return true;
+      }
+    } catch {}
+
+    // 3. Key term overlap: if 2+ significant terms match, likely same story
+    if (newTerms.length > 0 && exTerms.length > 0) {
+      const overlap = newTerms.filter(t => exTerms.some(et => et.includes(t) || t.includes(et)));
+      if (overlap.length >= 2) {
+        console.log(`[DEDUP] Key term overlap (${overlap.join(', ')}): "${newArticle.title}" vs "${existing.title}"`);
+        return true;
+      }
+    }
+
+    // 4. High title similarity (> 50% character overlap for Chinese titles)
+    if (newTitle.length > 10 && exTitle.length > 10) {
+      const newChars = new Set([...newTitle]);
+      const exChars = new Set([...exTitle]);
+      const intersection = [...newChars].filter(c => exChars.has(c)).length;
+      const similarity = intersection / Math.min(newChars.size, exChars.size);
+      if (similarity > 0.7) {
+        console.log(`[DEDUP] Title similarity ${(similarity * 100).toFixed(0)}%: "${newArticle.title}" vs "${existing.title}"`);
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+async function generateArticleWithAI(date, category, retryCount = 0) {
+  const catInfo = CATEGORY_SEARCH[category];
+  if (!catInfo) throw new Error(`Unknown category: ${category}`);
+
+  const query = catInfo.queries[Math.floor(Math.random() * catInfo.queries.length)];
+
+  // Fetch recent articles to avoid duplicates — use 60 for broader coverage
+  const recentArticles = db.prepare(
+    'SELECT title, original_url, source_name FROM articles WHERE category = ? ORDER BY date DESC LIMIT 60'
+  ).all(category);
+  const usedList = recentArticles.map(a => `- ${a.title} (${a.source_name}) ${a.original_url}`).join('\n');
+
+  // Extract banned topics/companies from recent articles for explicit exclusion
+  const allTerms = new Set();
+  recentArticles.forEach(a => extractKeyTerms(a.title).forEach(t => allTerms.add(t)));
+  const bannedTopics = [...allTerms].filter(t => t.length > 2).slice(0, 50).join(', ');
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': CONFIG.ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 8000,
+      tools: [{ type: 'web_search_20250305', name: 'web_search', max_uses: 5 }],
+      messages: [{
+        role: 'user',
+        content: `你是 WCA 白袍加速器的每日醫療新聞編輯。
+
+請搜尋以下關鍵字，找到一則近期（7天內）的可信英文醫療新聞：
+搜尋關鍵字：${query}
+
+可信來源包括：Fierce Healthcare, STAT News, Healthcare Dive, Modern Healthcare, Becker's Hospital Review, TechCrunch Health, MedCity News, Axios Health, HIMSS, KFF Health News 等。
+選擇對台灣醫療經營者有參考價值的新聞。
+
+找到新聞後，請根據原文撰寫以下 JSON 結構的繁體中文文章：
+
+{
+  "title": "繁體中文標題，吸引醫療經營者，具體且有數據感，不超過 50 字",
+  "source_name": "原始來源名稱，如 Fierce Healthcare",
+  "reading_time": "4",
+  "body": "繁體中文摘要，800-1200字，HTML格式用<p>標籤。須包含：事件背景與核心發現、3-4個關鍵數據點（用<strong>加粗）、對產業的影響分析",
+  "wca_insight": "WCA獨家洞察，200-400字純文字。角度：這對台灣的診所經營者/醫師創業者意味著什麼，給出具體可行的建議。語氣專業但有溫度。",
+  "original_url": "原始英文新聞URL"
+}
+
+分類：${catInfo.label}
+目標日期：${date}
+
+===== 嚴格禁止重複 =====
+以下是過去已使用過的文章，你必須選擇一則「完全不同的新聞事件」。
+不同的意思是：不同的公司、不同的事件、不同的報告。
+即使是同一事件被不同媒體報導，也算重複，不可使用。
+
+已使用文章清單：
+${usedList}
+
+已使用過的公司/主題關鍵字（全部禁止再用）：
+${bannedTopics}
+
+重要：
+- 只回覆 JSON，不要加任何前綴、說明或 markdown 包裹
+- original_url 必須是你搜尋到的真實 URL
+- 必須是上方清單中「從未出現過」的公司和新聞事件
+- 如果搜尋結果都是已使用過的主題，請換一組搜尋關鍵字重新搜尋
+- body 使用 <p> 標籤分段，關鍵數據用 <strong> 加粗
+- wca_insight 不要用 HTML，純文字即可`,
+      }],
+    }),
+  });
+
+  const data = await response.json();
+  if (!response.ok) throw new Error(data.error?.message || `API error ${response.status}`);
+
+  // Extract JSON from response — Claude may return multiple text blocks with
+  // thinking/explanation text mixed in. Find the block containing valid JSON.
+  const textBlocks = data.content.filter(b => b.type === 'text');
+  if (textBlocks.length === 0) throw new Error('No text response from Claude');
+
+  let article = null;
+
+  for (const block of textBlocks) {
+    const cleaned = block.text.replace(/^```json?\s*/i, '').replace(/\s*```\s*$/, '').trim();
+    // Try to find a JSON object in the text
+    const jsonMatch = cleaned.match(/\{[\s\S]*"title"[\s\S]*"original_url"[\s\S]*\}/);
+    if (jsonMatch) {
+      try { article = JSON.parse(jsonMatch[0]); break; } catch { /* try next block */ }
+    }
+    // Also try parsing the whole block
+    try { article = JSON.parse(cleaned); break; } catch { /* try next block */ }
+  }
+
+  if (!article) {
+    // Last resort: concatenate all text and try to extract JSON
+    const allText = textBlocks.map(b => b.text).join('\n');
+    const lastMatch = allText.match(/\{[\s\S]*"title"[\s\S]*"original_url"[\s\S]*\}/);
+    if (lastMatch) {
+      article = JSON.parse(lastMatch[0]);
+    }
+  }
+
+  if (!article) {
+    throw new Error('Could not extract JSON from Claude response');
+  }
+
+  // Post-generation duplicate check — retry up to 2 times if duplicate detected
+  if (isDuplicateArticle(article, recentArticles)) {
+    if (retryCount < 2) {
+      console.log(`[DEDUP] Duplicate detected for "${article.title}", retrying (attempt ${retryCount + 2}/3)...`);
+      await new Promise(r => setTimeout(r, 2000));
+      return generateArticleWithAI(date, category, retryCount + 1);
+    }
+    console.warn(`[DEDUP] Still duplicate after 3 attempts: "${article.title}" — inserting anyway to avoid missing date`);
+  }
+
+  return article;
+}
+
+async function replenishInventory() {
+  if (!CONFIG.ANTHROPIC_API_KEY) {
+    console.log('[INVENTORY] Skipped: ANTHROPIC_API_KEY not set');
+    return;
+  }
+
+  const missing = getArticleInventory();
+  if (missing.length === 0) {
+    console.log('[INVENTORY] All 7 days fully stocked');
+    return;
+  }
+
+  console.log(`[INVENTORY] Missing ${missing.length} articles, generating...`);
+
+  const insertStmt = db.prepare(
+    'INSERT INTO articles (date, category, title, source_name, reading_time, body, wca_insight, original_url) VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+  );
+
+  let success = 0;
+  let failed = 0;
+
+  for (const { date, category } of missing) {
+    try {
+      console.log(`[INVENTORY] Generating ${category} for ${date}...`);
+      const article = await generateArticleWithAI(date, category);
+      insertStmt.run(date, category, article.title, article.source_name, article.reading_time || '4', article.body, article.wca_insight, article.original_url);
+      success++;
+      console.log(`[INVENTORY] ✓ ${date} ${category}: ${article.title.slice(0, 30)}...`);
+      // Small delay between API calls
+      await new Promise(r => setTimeout(r, 2000));
+    } catch (err) {
+      failed++;
+      console.error(`[INVENTORY] ✗ ${date} ${category}: ${err.message}`);
+    }
+  }
+
+  console.log(`[INVENTORY] Done: ${success} created, ${failed} failed`);
+}
+
+// Admin: Trigger inventory replenish manually
+app.post('/api/admin/replenish', async (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${CONFIG.ADMIN_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  try {
+    const missing = getArticleInventory();
+    if (missing.length === 0) {
+      return res.json({ message: '庫存充足，無需補充', missing: 0 });
+    }
+    // Run in background, respond immediately
+    res.json({ message: `開始補充 ${missing.length} 篇文章`, missing: missing.length });
+    await replenishInventory();
+  } catch (err) {
+    console.error('Replenish error:', err);
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  }
+});
+
+// Admin: Check inventory status
+app.get('/api/admin/inventory', (req, res) => {
+  const authHeader = req.headers.authorization;
+  if (authHeader !== `Bearer ${CONFIG.ADMIN_SECRET}`) {
+    return res.status(401).json({ error: 'Unauthorized' });
+  }
+
+  const categories = ['clinic', 'talent', 'startup'];
+  const days = [];
+  for (let i = 0; i < 7; i++) {
+    const date = getTaipeiDate(i);
+    const articles = db.prepare('SELECT category, title FROM articles WHERE date = ?').all(date);
+    const missingCats = categories.filter(c => !articles.find(a => a.category === c));
+    days.push({ date, articles: articles.length, missing: missingCats });
+  }
+
+  const totalMissing = days.reduce((sum, d) => sum + d.missing.length, 0);
+  res.json({ totalMissing, days });
+});
+
+// ===== Cron: Daily 6:00 AM — Auto Replenish Inventory =====
+cron.schedule('0 6 * * *', async () => {
+  console.log('[CRON] Triggering inventory replenish at 6:00 AM (Asia/Taipei)...');
+  try {
+    await replenishInventory();
+  } catch (err) {
+    console.error('[CRON] Inventory replenish failed:', err);
+  }
+}, {
+  timezone: 'Asia/Taipei',
+  scheduled: true,
+});
+
 // ===== Cron: Daily 8:00 AM Taiwan Time =====
 cron.schedule('0 8 * * *', async () => {
   console.log('[CRON] Triggering daily newsletter at 8:00 AM (Asia/Taipei)...');
@@ -699,9 +1166,6 @@ cron.schedule('0 8 * * *', async () => {
 });
 
 // ===== Start =====
-// Ensure data directory exists
-import { mkdirSync } from 'fs';
-try { mkdirSync(join(__dirname, 'data'), { recursive: true }); } catch {}
 
 app.listen(PORT, () => {
   const subscriberCount = db.prepare('SELECT COUNT(*) as count FROM subscribers WHERE active = 1').get().count;
@@ -710,7 +1174,7 @@ app.listen(PORT, () => {
 ║   WCA Newsletter API Server                  ║
 ║   Port: ${PORT}                                  ║
 ║   Active subscribers: ${String(subscriberCount).padEnd(23)}║
-║   Cron: Daily 8:00 AM (Asia/Taipei)         ║
+║   Cron: 6AM inventory, 8AM newsletter        ║
 ╚══════════════════════════════════════════════╝
   `);
 });
