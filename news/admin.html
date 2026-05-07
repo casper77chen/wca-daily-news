@@ -325,6 +325,7 @@ tr:hover td { background: #FAFAF7; }
 .article-card-info { flex: 1; min-width: 200px; }
 .article-card-title { font-weight: 600; font-size: 15px; margin-bottom: 4px; color: var(--ink-black); }
 .article-card-source { font-size: 13px; color: var(--platinum); }
+.badge-edited { display: inline-block; font-size: 11px; color: #7c5e24; background: #fef3cd; padding: 2px 8px; border-radius: 10px; margin-left: 8px; font-weight: 500; }
 .article-card-actions { display: flex; gap: 8px; }
 .btn-edit-article, .btn-delete-article {
   padding: 6px 14px;
@@ -339,9 +340,9 @@ tr:hover td { background: #FAFAF7; }
 .btn-edit-article:hover { opacity: 0.75; }
 .btn-delete-article { background: #FDECEA; color: var(--danger-red); }
 .btn-delete-article:hover { opacity: 0.75; }
-.btn-publish-article { background: #E8F5E9; color: var(--medical-green); }
+.btn-publish-article { padding: 6px 14px; border: none; border-radius: 8px; font-size: 13px; cursor: pointer; font-family: var(--font-sans); transition: opacity .2s; background: #E5E2DB; color: #8C8C8C; }
 .btn-publish-article:hover { opacity: 0.75; }
-.btn-publish-article.published { background: var(--medical-green); color: #fff; }
+.btn-publish-article.published { background: #E8F5E9; color: var(--medical-green); }
 
 .category-badge {
   display: inline-block;
@@ -355,6 +356,7 @@ tr:hover td { background: #FAFAF7; }
 .category-badge.clinic { background: #2D7D46; }
 .category-badge.talent { background: #1565C0; }
 .category-badge.startup { background: #E65100; }
+.category-badge.casper_pick { background: #7B1FA2; }
 
 .article-form-wrap {
   background: #fff;
@@ -502,14 +504,14 @@ tr:hover td { background: #FAFAF7; }
 
     <!-- Tabs -->
     <div class="tabs">
-      <button class="tab-btn active" onclick="switchTab('subscribers')">訂閱者列表</button>
+      <button class="tab-btn" onclick="switchTab('subscribers')">訂閱者列表</button>
       <button class="tab-btn" onclick="switchTab('send-log')">發送紀錄</button>
       <button class="tab-btn" onclick="switchTab('send-newsletter')">手動發送</button>
-      <button class="tab-btn" onclick="switchTab('articles')">文章管理</button>
+      <button class="tab-btn active" onclick="switchTab('articles')">文章管理</button>
     </div>
 
     <!-- Tab: Subscribers -->
-    <div class="tab-panel active" id="panel-subscribers">
+    <div class="tab-panel" id="panel-subscribers">
       <div class="table-wrap">
         <div class="table-toolbar">
           <input type="text" class="table-search" id="sub-search" placeholder="搜尋 email 或名稱..." oninput="filterSubscribers()">
@@ -568,10 +570,12 @@ tr:hover td { background: #FAFAF7; }
     </div>
 
     <!-- Tab: Articles -->
-    <div class="tab-panel" id="panel-articles">
+    <div class="tab-panel active" id="panel-articles">
       <div class="articles-toolbar">
         <label class="form-label" style="margin-bottom:0;">篩選日期</label>
-        <input type="date" class="form-input" id="articles-date" onchange="loadArticles()">
+        <button onclick="shiftArticleDate(-1)" style="background:none;border:1px solid var(--linen-line);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;line-height:1;">◀</button>
+        <input type="date" class="form-input" id="articles-date" onchange="loadArticles()" style="width:auto;">
+        <button onclick="shiftArticleDate(1)" style="background:none;border:1px solid var(--linen-line);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px;line-height:1;">▶</button>
         <button class="btn-add-article" onclick="showArticleForm()">＋ 新增文章</button>
       </div>
 
@@ -589,7 +593,16 @@ tr:hover td { background: #FAFAF7; }
               <option value="clinic">診所經營管理</option>
               <option value="talent">醫療領導人才</option>
               <option value="startup">醫療科技新創</option>
+              <option value="casper_pick">Casper 特別推薦</option>
             </select>
+          </div>
+          <div class="form-group full" id="generate-row">
+            <label class="form-label">原文連結</label>
+            <div style="display:flex;gap:10px;">
+              <input type="url" class="form-input" id="af-url" placeholder="https://..." style="flex:1;">
+              <button type="button" class="btn-add-article" id="btn-generate" onclick="generateArticle()" style="white-space:nowrap;margin:0;">AI 產文</button>
+            </div>
+            <div id="generate-status" style="font-size:13px;margin-top:8px;color:var(--platinum);display:none;"></div>
           </div>
           <div class="form-group full">
             <label class="form-label">標題</label>
@@ -610,10 +623,6 @@ tr:hover td { background: #FAFAF7; }
           <div class="form-group full">
             <label class="form-label">WCA Insight</label>
             <textarea class="form-input" id="af-insight" placeholder="WCA 觀點與分析"></textarea>
-          </div>
-          <div class="form-group full">
-            <label class="form-label">原文連結</label>
-            <input type="url" class="form-input" id="af-url" placeholder="https://...">
           </div>
         </div>
         <div class="article-form-actions">
@@ -653,6 +662,7 @@ function doLogin() {
       document.getElementById('dashboard').style.display = 'block';
       renderDashboard(data);
       loadSendLog();
+      switchTab('articles');
     })
     .catch(() => {
       document.getElementById('login-error').style.display = 'block';
@@ -677,10 +687,13 @@ function doLogout() {
     document.getElementById('admin-secret').value = saved;
     doLogin();
   }
-  // Set default date to today
+  // Set default dates
   const today = new Date().toLocaleDateString('sv-SE', { timeZone: 'Asia/Taipei' });
+  const tomorrow = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Taipei' }));
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const tomorrowStr = tomorrow.toLocaleDateString('sv-SE');
   document.getElementById('send-date').value = today;
-  document.getElementById('articles-date').value = today;
+  document.getElementById('articles-date').value = tomorrowStr;
 })();
 
 // ===== Fetch Helper =====
@@ -906,7 +919,15 @@ function formatDate(d) {
 }
 
 // ===== Article Management =====
-const CATEGORY_LABELS = { clinic: '診所經營管理', talent: '醫療領導人才', startup: '醫療科技新創' };
+const CATEGORY_LABELS = { clinic: '診所經營管理', talent: '醫療領導人才', startup: '醫療科技新創', casper_pick: 'Casper 特別推薦' };
+
+function shiftArticleDate(days) {
+  const input = document.getElementById('articles-date');
+  const d = new Date(input.value);
+  d.setDate(d.getDate() + days);
+  input.value = d.toLocaleDateString('sv-SE');
+  loadArticles();
+}
 
 function loadArticles() {
   const date = document.getElementById('articles-date').value;
@@ -929,12 +950,13 @@ function loadArticles() {
         <div class="article-card">
           <span class="category-badge ${escHtml(a.category)}">${escHtml(CATEGORY_LABELS[a.category] || a.category)}</span>
           ${isLive ? '<span style="color:var(--danger-red);font-size:12px;font-weight:600;margin-left:8px;">已發佈</span>' : ''}
+          ${a.updated_at && a.created_at && a.updated_at !== a.created_at ? '<span class="badge-edited">已編輯</span>' : ''}
           <div class="article-card-info">
             <div class="article-card-title">${escHtml(a.title)}</div>
             <div class="article-card-source">${escHtml(a.source_name || '')}</div>
           </div>
           <div class="article-card-actions">
-            <button class="btn-publish-article${a.published ? ' published' : ''}" onclick="togglePublish(${a.id})">${a.published ? '✓ 已上稿' : '上稿'}</button>
+            <button class="btn-publish-article${a.published ? ' published' : ''}" onclick="togglePublish(${a.id})">${a.published ? '✓ 上稿' : '待審'}</button>
             <button class="btn-edit-article" onclick='editArticle(${JSON.stringify(a).replace(/'/g,"&#39;")})'>編輯</button>
             <button class="btn-delete-article" onclick="deleteArticle(${a.id})">刪除</button>
           </div>
@@ -967,13 +989,16 @@ function showArticleForm(article) {
     editId.value = '';
     document.getElementById('af-date').value = document.getElementById('articles-date').value || '';
     document.getElementById('af-category').value = 'clinic';
+    document.getElementById('af-url').value = '';
     document.getElementById('af-title').value = '';
     document.getElementById('af-source').value = '';
     document.getElementById('af-reading-time').value = 4;
     document.getElementById('af-body').value = '';
     document.getElementById('af-insight').value = '';
-    document.getElementById('af-url').value = '';
   }
+  // Reset generate status
+  const genStatus = document.getElementById('generate-status');
+  if (genStatus) { genStatus.style.display = 'none'; genStatus.textContent = ''; }
   wrap.classList.add('visible');
   wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -1040,6 +1065,45 @@ function togglePublish(id) {
       loadArticles();
     })
     .catch(err => alert('操作錯誤：' + err.message));
+}
+
+async function generateArticle() {
+  const url = document.getElementById('af-url').value.trim();
+  const category = document.getElementById('af-category').value;
+  if (!url) { alert('請先輸入原文連結'); return; }
+
+  const btn = document.getElementById('btn-generate');
+  const status = document.getElementById('generate-status');
+  btn.disabled = true;
+  btn.textContent = '產文中...';
+  status.style.display = 'block';
+  status.textContent = 'AI 正在分析文章，約需 15-30 秒...';
+  status.style.color = 'var(--platinum)';
+
+  try {
+    const res = await fetchWithAuth('/api/admin/generate-article', {
+      method: 'POST',
+      body: JSON.stringify({ url, category }),
+    });
+    const data = await res.json();
+    if (data.error) throw new Error(data.error);
+
+    const g = data.generated;
+    document.getElementById('af-title').value = g.title || '';
+    document.getElementById('af-source').value = g.source_name || '';
+    document.getElementById('af-reading-time').value = g.reading_time || '4';
+    document.getElementById('af-body').value = g.body || '';
+    document.getElementById('af-insight').value = g.wca_insight || '';
+
+    status.textContent = 'AI 產文完成！請檢查內容後儲存。';
+    status.style.color = '#2D7D46';
+  } catch (err) {
+    status.textContent = '產文失敗：' + err.message;
+    status.style.color = '#c0392b';
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'AI 產文';
+  }
 }
 
 function deleteArticle(id) {
